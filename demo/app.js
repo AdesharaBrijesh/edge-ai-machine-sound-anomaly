@@ -209,7 +209,9 @@ async function loadClips() {
       const b = document.createElement('button');
       b.className = 'clip';
       const k = clip.file.split('_')[1];
-      b.innerHTML = `<span class="tag tag-${clip.label}">${clip.label}</span><br>Clip ${k} · pump ID ${clip.machine_id}`;
+      b.innerHTML = clip.label === 'unknown'
+        ? `<span class="tag tag-unknown">unknown</span><br>${clip.machine_id}`
+        : `<span class="tag tag-${clip.label}">${clip.label}</span><br>Clip ${k} · pump ID ${clip.machine_id}`;
       b.onclick = () => playClip(clip, b);
       list.appendChild(b);
     });
@@ -404,7 +406,8 @@ function classifyClip(samples, truth) {
   for (let end = state.winSamples; end <= samples.length; end += hop) {
     runInference(samples.subarray(end - state.winSamples, end), truth);
     const last = state.recent[state.recent.length - 1];
-    const top = Object.entries(last.probs).sort((a, b) => b[1] - a[1])[0][0];
+    const flagged = state.hasAnomaly && last.anomaly > state.threshold;
+    const top = flagged ? 'unknown' : Object.entries(last.probs).sort((a, b) => b[1] - a[1])[0][0];
     votes[top] = (votes[top] || 0) + 1;
     correct += top === truth ? 1 : 0;
     anomalySum += last.anomaly;
@@ -422,16 +425,21 @@ async function evaluateAll() {
     const r = classifyClip(await decodeClip(clip.file), clip.label);
     rows.push({ file: clip.file, label: clip.label, machine_id: clip.machine_id, ...r });
   }
-  const winAcc = rows.reduce((s, r) => s + r.windowAccuracy * r.windows, 0) / rows.reduce((s, r) => s + r.windows, 0);
-  const clipAcc = rows.filter((r) => r.majority === r.label).length / rows.length;
+  const known = rows.filter((r) => r.label !== 'unknown');
+  const unknown = rows.filter((r) => r.label === 'unknown');
+  const winAcc = known.reduce((s, r) => s + r.windowAccuracy * r.windows, 0) / known.reduce((s, r) => s + r.windows, 0);
+  const clipAcc = known.filter((r) => r.majority === r.label).length / known.length;
+  const meanOf = (list) => (list.length ? list.reduce((s, r) => s + r.meanAnomaly, 0) / list.length : NaN);
   const avgLatency = state.latSum / state.count;
   $('eval').classList.remove('hidden');
-  $('eval-summary').innerHTML = `Window accuracy <b>${(winAcc * 100).toFixed(1)} %</b> · clip accuracy (majority vote) <b>${(clipAcc * 100).toFixed(0)} %</b> · ${state.count} inferences, mean ${avgLatency.toFixed(2)} ms each`;
+  $('eval-summary').innerHTML = `Pump clips: window accuracy <b>${(winAcc * 100).toFixed(1)} %</b>, clip accuracy (majority vote) <b>${(clipAcc * 100).toFixed(0)} %</b> · ` +
+    `mean anomaly score: pump clips ${meanOf(known).toFixed(2)}, unknown sounds ${meanOf(unknown).toFixed(2)} · ${state.count} inferences, ${avgLatency.toFixed(2)} ms each`;
   $('eval-table').innerHTML = '<tr><th>Clip</th><th>True label</th><th>Majority prediction</th><th>Windows correct</th><th>Mean anomaly</th></tr>' +
     rows.map((r) => `<tr><td>${r.file}</td><td>${r.label}</td><td class="${r.majority === r.label ? 'ok' : 'bad'}">${r.majority}</td>` +
       `<td class="num">${(r.windowAccuracy * 100).toFixed(0)} %</td><td class="num">${r.meanAnomaly.toFixed(2)}</td></tr>`).join('');
   $('eval-json').textContent = JSON.stringify({ windowAccuracy: winAcc, clipAccuracy: clipAcc, inferences: state.count,
-    meanLatencyMs: avgLatency, clips: rows });
+    meanLatencyMs: avgLatency, meanAnomalyKnown: meanOf(known), meanAnomalyUnknown: meanOf(unknown),
+    threshold: state.threshold, clips: rows });
   document.title = 'EVAL DONE';
 }
 

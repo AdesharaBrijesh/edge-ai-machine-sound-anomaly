@@ -47,6 +47,7 @@ h2 small, .stats small { font-weight: 400; color: var(--muted); }
 .clip .tag { display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: 0.7rem; margin-bottom: 4px; }
 .tag-normal { background: color-mix(in srgb, var(--normal) 25%, transparent); color: var(--normal); }
 .tag-abnormal { background: color-mix(in srgb, var(--abnormal) 25%, transparent); color: var(--abnormal); }
+.tag-unknown { background: color-mix(in srgb, var(--unknown) 25%, transparent); color: var(--unknown); }
 
 .btn { padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: #1d2631;
        color: var(--text); cursor: pointer; font: inherit; }

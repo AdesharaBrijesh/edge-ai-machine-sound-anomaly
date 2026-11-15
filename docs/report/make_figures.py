@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -18,6 +19,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.ticker  # noqa: E402,F401
 import numpy as np  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from scipy.io import wavfile  # noqa: E402
@@ -140,6 +142,95 @@ def fig_mic_path() -> None:
     save(fig, "mic_path.png")
 
 
+EPOCH_RE = re.compile(r"loss: ([0-9.]+) - accuracy: ([0-9.]+) - val_loss: ([0-9.]+) - val_accuracy: ([0-9.]+)")
+
+
+def fig_training_curves(log: Path, name: str = "training_curves.png") -> None:
+    if not log.exists():
+        return
+    rows = [tuple(map(float, m.groups())) for m in EPOCH_RE.finditer(log.read_text(encoding="utf-8"))]
+    if len(rows) < 3:
+        return
+    arr = np.array(rows)
+    epochs = np.arange(1, len(arr) + 1)
+    fig, (ax_acc, ax_loss) = plt.subplots(1, 2, figsize=(6.5, 2.4), constrained_layout=True)
+    for ax, (tr, va), title in ((ax_acc, (1, 3), "Accuracy"), (ax_loss, (0, 2), "Loss")):
+        for col, label, colour in ((tr, "training", SERIES["normal"]), (va, "validation", SERIES["abnormal"])):
+            ax.plot(epochs, arr[:, col], color=colour, linewidth=2, label=label)
+            ax.annotate(label, (epochs[-1], arr[-1, col]), xytext=(4, 0), textcoords="offset points",
+                        color=INK2, fontsize=8, va="center")
+        ax.set_title(title, loc="left")
+        ax.set_xlabel("Epoch")
+        ax.grid(True, axis="y")
+        ax.set_xlim(1, epochs[-1] * 1.18)
+    ax_acc.set_ylim(0, 1)
+    ax_acc.legend(loc="lower right", fontsize=8, labelcolor=INK2)
+    save(fig, name)
+
+
+def fig_shuffle_fix(stuck: Path, fixed: Path) -> None:
+    """Validation accuracy per epoch: default 128-window shuffle (stuck) vs full shuffle (fixed)."""
+    runs = {}
+    for label, path, colour in (("default shuffle (128 windows)", stuck, SERIES["abnormal"]),
+                                ("full shuffle every epoch", fixed, SERIES["normal"])):
+        if not path.exists():
+            return
+        vals = [float(m.group(4)) for m in EPOCH_RE.finditer(path.read_text(encoding="utf-8"))]
+        if len(vals) < 3:
+            return
+        runs[label] = (vals, colour)
+    fig, ax = plt.subplots(figsize=(6.5, 2.6), constrained_layout=True)
+    longest = max(len(v) for v, _ in runs.values())
+    ax.axhline(0.5, color=MUTED, linewidth=1, linestyle=(0, (4, 3)))
+    ax.annotate("chance (50 %)", (longest, 0.5), xytext=(4, -10), textcoords="offset points", color=MUTED, fontsize=8)
+    for label, (vals, colour) in runs.items():
+        epochs = np.arange(1, len(vals) + 1)
+        ax.plot(epochs, vals, color=colour, linewidth=2, label=label)
+        ax.annotate(f"{label}: {vals[-1]:.0%}", (epochs[-1], vals[-1]), xytext=(4, 6), textcoords="offset points",
+                    color=INK2, fontsize=8)
+    ax.set_ylim(0.3, 1.0)
+    ax.set_xlim(1, longest * 1.45)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Validation accuracy")
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.grid(True, axis="y")
+    ax.set_title("Same data, same network: only the shuffle changed", loc="left")
+    ax.legend(loc="lower right", fontsize=8, labelcolor=INK2)
+    save(fig, "shuffle_fix.png")
+
+
+def fig_anomaly_scores(path: Path) -> None:
+    """Mean GMM anomaly score per demo clip (computed by the WebAssembly model in the browser)."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text(encoding="utf-8"))
+    clips = data.get("clips") or []
+    if not clips:
+        return
+    colours = {"normal": SERIES["normal"], "abnormal": SERIES["abnormal"], "unknown": SERIES["background"]}
+    order = {"normal": 0, "abnormal": 1, "unknown": 2}
+    clips = sorted(clips, key=lambda c: (order.get(c["label"], 3), c["file"]))
+    names = [c["file"].replace(".wav", "").replace("_", " ") for c in clips]
+    values = [c["meanAnomaly"] for c in clips]
+    fig, ax = plt.subplots(figsize=(6.5, 0.28 * len(clips) + 0.9), constrained_layout=True)
+    y = np.arange(len(clips))[::-1]
+    ax.barh(y, values, height=0.7, color=[colours.get(c["label"], MUTED) for c in clips],
+            edgecolor="white", linewidth=1.5)
+    ax.set_yticks(y, names, fontsize=8)
+    thr = data.get("threshold")
+    if isinstance(thr, (int, float)):
+        ax.axvline(thr, color=INK2, linewidth=1, linestyle=(0, (4, 3)))
+        ax.annotate(f"threshold {thr:g}", (thr, y[0] + 0.6), xytext=(4, 0), textcoords="offset points",
+                    color=INK2, fontsize=8)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=colours[k]) for k in ("normal", "abnormal", "unknown")]
+    ax.legend(handles, ["normal pump", "abnormal pump", "synthetic unknown sound"], loc="lower right",
+              fontsize=8, labelcolor=INK2)
+    ax.set_xlabel("Mean anomaly score (GMM)")
+    ax.grid(True, axis="x")
+    ax.set_title("Unknown sounds score far above every pump clip", loc="left")
+    save(fig, "anomaly_scores.png")
+
+
 def dataset_stats(rows: list[dict]) -> dict:
     counts = Counter((r["split"], r["label"]) for r in rows)
     mic = Counter()
@@ -157,6 +248,9 @@ def main() -> None:
     print("Figures:")
     fig_spectrograms(rows)
     fig_mic_path()
+    fig_training_curves(RESULTS / "train_main.log")
+    fig_shuffle_fix(RESULTS / "train_stuck.log", RESULTS / "train_main.log")
+    fig_anomaly_scores(RESULTS / "demo_eval.json")
     data = {"dataset": dataset_stats(rows)}
     for path in sorted(RESULTS.glob("*.json")):
         if not path.name.endswith("_full.json"):

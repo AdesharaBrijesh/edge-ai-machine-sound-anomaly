@@ -86,6 +86,17 @@ def upload(groups: dict[tuple[str, str], list[Path]], key: str) -> Counter:
     return totals
 
 
+def remote_names(client: EIClient, category: str) -> set[str]:
+    """Sample names already in the project (Edge Impulse names a sample after its file, minus extension)."""
+    names, offset = set(), 0
+    while True:
+        samples = client.get("raw-data", category=category, limit=1000, offset=offset).get("samples", [])
+        names.update(str(s.get("filename", "")) for s in samples)
+        if len(samples) < 1000:
+            return names
+        offset += 1000
+
+
 def remote_counts(client: EIClient) -> dict[str, Counter]:
     counts: dict[str, Counter] = {}
     for category in CATEGORIES:
@@ -107,6 +118,8 @@ def main() -> None:
     ap.add_argument("--dir", type=Path, help="upload every .wav in this folder instead of --source")
     ap.add_argument("--category", choices=[*CATEGORIES, "split"], help="category for --dir")
     ap.add_argument("--verify-only", action="store_true")
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="list the project's samples first and upload only files not there yet (resume after a failure)")
     args = ap.parse_args()
 
     key, project_id = get_config()
@@ -123,7 +136,17 @@ def main() -> None:
             for category in CATEGORIES:
                 for path in sorted((args.source / category).glob("*.wav")):
                     groups[(category, label_of(path))].append(path)
-        if not groups:
+        if args.skip_existing:
+            for (category, label) in list(groups):
+                existing = remote_names(client, category)
+                before = len(groups[(category, label)])
+                groups[(category, label)] = [p for p in groups[(category, label)] if p.stem not in existing]
+                print(f"{category}/{label}: {before - len(groups[(category, label)])} already in the project")
+                if not groups[(category, label)]:
+                    del groups[(category, label)]
+            if not groups:
+                print("Everything is already uploaded.")
+        if not groups and not args.skip_existing:
             sys.exit("Nothing to upload.")
         totals = upload(groups, key)
         print(f"\nUploaded {totals['uploaded']}, already present {totals['duplicate']}, failed {totals['failed']}")
