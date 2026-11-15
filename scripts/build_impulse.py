@@ -55,11 +55,15 @@ SPECTRAL_CONFIG = {
 # the network never learned (loss stuck at ln 2 = 0.693). See docs/report, section 7.
 EXPERT_SCRIPT = """import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, InputLayer, Dropout, Conv1D, Conv2D, Flatten, Reshape, MaxPooling1D, MaxPooling2D, AveragePooling2D, BatchNormalization, Permute, ReLU, Softmax, Activation
+from tensorflow.keras.layers import Dense, InputLayer, Dropout, Conv1D, Conv2D, Flatten, Reshape, MaxPooling1D, MaxPooling2D, AveragePooling2D, BatchNormalization, Permute, ReLU, Softmax, Activation, Cropping1D
 from tensorflow.keras.optimizers.legacy import Adam
 
-EPOCHS = args.epochs or 100
-LEARNING_RATE = args.learning_rate or 0.005
+# The classifier receives [MFE features | spectral features] so that the deployed SDK's feature
+# buffer (sized by this block's input) holds the output of BOTH processing blocks. Only the
+# MFE part feeds the network; the spectral part is for the GMM anomaly block.
+MFE_FEATURES = {MFE_FEATURES}
+EPOCHS = {EPOCHS}
+LEARNING_RATE = {LEARNING_RATE}
 ENSURE_DETERMINISM = args.ensure_determinism
 BATCH_SIZE = args.batch_size or 32
 # Full shuffle (the default buffer of BATCH_SIZE*4 leaves the class-ordered data in single-class batches)
@@ -69,7 +73,9 @@ validation_dataset = validation_dataset.batch(BATCH_SIZE, drop_remainder=False)
 
 # model architecture (same as the visual editor: Reshape -> 2 x [Conv1D + MaxPool + Dropout] -> Dense)
 model = Sequential()
-model.add(Reshape((int(input_length / {NUM_FILTERS}), {NUM_FILTERS}), input_shape=(input_length, )))
+model.add(Reshape((input_length, 1), input_shape=(input_length, )))
+model.add(Cropping1D(cropping=(0, input_length - MFE_FEATURES)))   # keep the MFE features only
+model.add(Reshape((int(MFE_FEATURES / {NUM_FILTERS}), {NUM_FILTERS})))
 model.add(Conv1D(16, kernel_size=3, padding='same', activation='relu'))
 model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
 model.add(Dropout(0.25))
@@ -89,11 +95,15 @@ disable_per_channel_quantization = False
 """
 
 
-def keras_config(num_filters: int, epochs: int, lr: float, augment: bool = False, expert: bool = True) -> dict:
+def keras_config(num_filters: int, epochs: int, lr: float, augment: bool = False, expert: bool = True,
+                 mfe_features: int = 2440) -> dict:
     if expert:
         return {
             "mode": "expert",
-            "script": EXPERT_SCRIPT.replace("{NUM_FILTERS}", str(num_filters)),
+            # expert mode ignores trainingCycles/learningRate, so they are written into the script itself
+            "script": (EXPERT_SCRIPT.replace("{NUM_FILTERS}", str(num_filters))
+                       .replace("{MFE_FEATURES}", str(mfe_features))
+                       .replace("{EPOCHS}", str(epochs)).replace("{LEARNING_RATE}", repr(lr))),
             "trainingCycles": epochs,
             "learningRate": lr,
             "batchSize": 32,
@@ -226,7 +236,7 @@ class Studio:
                 versions[block["type"]] = version
         return versions
 
-    def create_main(self, window_ms: int, stride_ms: int) -> None:
+    def create_main(self, window_ms: int, stride_ms: int, replace: bool = True) -> None:
         versions = self.latest_versions()
         dsp = lambda bid, typ, name: {k: v for k, v in {  # noqa: E731
             "id": bid, "type": typ, "name": name, "title": name, "axes": ["audio"], "input": MAIN["input"],
@@ -238,18 +248,24 @@ class Studio:
                              "padZeros": True}],
             "dspBlocks": [dsp(MAIN["mfe"], "mfe", "MFE"), dsp(MAIN["spectral"], "spectral-analysis", "Spectral features")],
             "learnBlocks": [
+                # Both DSP blocks feed the classifier so the SDK's feature buffer fits both outputs;
+                # the network itself crops to the MFE part (see EXPERT_SCRIPT).
                 {"id": MAIN["classifier"], "type": "keras", "name": "Classifier", "title": "Classification",
-                 "dsp": [MAIN["mfe"]]},
+                 "dsp": [MAIN["mfe"], MAIN["spectral"]]},
                 {"id": MAIN["anomaly"], "type": "anomaly-gmm", "name": "Anomaly detection", "title": "Anomaly detection (GMM)",
                  "dsp": [MAIN["spectral"]]},
             ],
         }
-        try:
-            self.impulse.delete_impulse(self.pid)
-        except ei.ApiException:
-            pass  # no impulse yet
-        self.ok(self.impulse.create_impulse(self.pid, ei.CreateImpulseRequest.from_dict(impulse)), "create impulse")
-        print(f"Main impulse created: window {window_ms} ms, stride {stride_ms} ms, DSP versions {versions}")
+        if replace:
+            try:
+                self.impulse.delete_impulse(self.pid)
+            except ei.ApiException:
+                pass  # no impulse yet
+        # Posting without deleting first updates the impulse in place (like Studio's "Save impulse"),
+        # keeping DSP configurations and generated features of unchanged blocks.
+        self.http.post("impulse", impulse)
+        print(f"Main impulse {'created' if replace else 'updated'}: window {window_ms} ms, stride {stride_ms} ms, "
+              f"DSP versions {versions}")
 
     def dsp_params(self, dsp_id: int) -> dict:
         resp = self.ok(self.dsp.get_dsp_config(self.pid, dsp_id), "get DSP config")
@@ -287,7 +303,9 @@ class Studio:
 
     def train_classifier(self, learn_id: int, num_filters: int, epochs: int, lr: float, tag: str,
                          augment: bool = False) -> dict:
-        job_id = self.http.post(f"jobs/train/keras/{learn_id}", keras_config(num_filters, epochs, lr, augment))["id"]
+        mfe_features = int(self.http.get(f"dsp/{MAIN['mfe']}/metadata").get("featureCount") or 2440)
+        cfg = keras_config(num_filters, epochs, lr, augment, mfe_features=mfe_features)
+        job_id = self.http.post(f"jobs/train/keras/{learn_id}", cfg)["id"]
         lines = self.wait(job_id, f"train {tag}", timeout=3600)
         RESULTS.mkdir(exist_ok=True)
         (RESULTS / f"train_{tag}.log").write_text("\n".join(lines), encoding="utf-8")
@@ -329,21 +347,55 @@ class Studio:
         req = ei.StartClassifyJobRequest.from_dict({"modelVariants": ["int8"]})
         kwargs = {"impulse_id": impulse_id} if impulse_id is not None else {}
         job = self.ok(self.jobs.start_classify_job(self.pid, req, **kwargs), "model testing")
-        lines = self.wait(job.id, f"model testing {tag}")
-        summary = {"log_metrics": self.metrics_from_log(lines)}
-        try:
-            res = self.classify.get_classify_job_result(self.pid, variant="int8", **kwargs).to_dict()
-            summary["accuracy"] = res.get("accuracy")
-            self.save(f"test_{tag}_full", res)
-        except ei.ApiException as exc:
-            summary["result_error"] = str(exc)
+        self.wait(job.id, f"model testing {tag}")
+        return self.test_result(impulse_id, tag)
+
+    def test_result(self, impulse_id: int | None = None, tag: str = "main", variant: str = "int8") -> dict:
+        """Read the latest model-testing result as plain JSON (the generated model fails on threshold values)."""
+        params = {"variant": variant, **({"impulseId": impulse_id} if impulse_id is not None else {})}
+        res = self.http.get("classify/all/result", **params)
+        self.save(f"test_{tag}_full", res)
+        acc = res.get("accuracy") or {}
+        summary = {"variant": variant, "accuracy": acc}
         self.save(f"test_{tag}", summary)
-        acc = summary.get("accuracy") or {}
-        print(f"  test {tag}: accuracy {acc.get('accuracyScore')}  summary {acc.get('totalSummary')}")
+        print(f"  test {tag} ({variant}): accuracy {acc.get('accuracyScore')}  summary {acc.get('totalSummary')}")
         return summary
 
     def performance(self) -> dict:
-        """On-device estimates for the project's target device; raw responses kept for the report."""
+        """On-device estimates for the project's target device, per learning block and model variant.
+
+        Read from the detailed impulse (the same numbers Studio shows on each learning block). The
+        MFE/Spectral DSP estimates are not exposed by the API; Studio shows them on the DSP pages."""
+        detailed = self.http.get("impulses-detailed").get("impulses", [{}])[0]
+        summary: dict = {}
+        blocks = [("classifier", detailed.get("learnBlockKerasConfigs") or []),
+                  ("anomaly", detailed.get("learnBlockAnomalyConfigs") or [])]
+        for name, configs in blocks:
+            for cfg in configs:
+                for m in (cfg.get("metadata") or {}).get("modelValidationMetrics") or []:
+                    for dev in m.get("onDevicePerformance") or []:
+                        if not dev.get("isDefault"):
+                            continue
+                        mem = dev.get("eon") or dev.get("tflite") or {}
+                        key = f"{name}_{m.get('type', 'model')}"
+                        summary[key] = {"device": dev.get("name"), "latency_ms": dev.get("latency"),
+                                        "ram_kb": round((mem.get("ramRequired") or 0) / 1024, 1),
+                                        "flash_kb": round((mem.get("romRequired") or 0) / 1024, 1)}
+        cls = summary.get("classifier_int8") or {}
+        gmm = next((v for k, v in summary.items() if k.startswith("anomaly")), {})
+        summary.update({
+            "device": cls.get("device"),
+            "nn_ms": cls.get("latency_ms"), "gmm_ms": gmm.get("latency_ms"),
+            "learn_ms": (cls.get("latency_ms") or 0) + (gmm.get("latency_ms") or 0),
+            "ram_kb": max(cls.get("ram_kb") or 0, gmm.get("ram_kb") or 0) or None,
+            "flash_kb": round((cls.get("flash_kb") or 0) + (gmm.get("flash_kb") or 0), 1) or None,
+        })
+        self.save("performance", summary)
+        print("  on-device estimate:", json.dumps(summary, indent=1))
+        return summary
+
+    def performance_legacy(self) -> dict:
+        """Earlier attempt (kept for reference): per-DSP-block endpoint returns no numbers on this plan."""
         raw = {}
         for name, path in (("mfe", f"dsp/{MAIN['mfe']}/performance"), ("spectral", f"dsp/{MAIN['spectral']}/performance"),
                            ("classifier", f"training/keras/{MAIN['classifier']}/metadata")):
@@ -415,14 +467,15 @@ class Studio:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["info", "target", "create", "configure", "features", "train", "test", "all",
-                                        "reference", "perf", "tuner"])
+                                        "reference", "perf", "tuner", "testresult", "update-impulse"])
     ap.add_argument("--device", default="nano 33", help="text to match a latency device (target command)")
     ap.add_argument("--window-ms", type=int, default=1000)
     ap.add_argument("--stride-ms", type=int, default=500)
     ap.add_argument("--low-hz", type=int, help="override MFE low frequency (e.g. 300 for speaker playback)")
     ap.add_argument("--autotune", action="store_true", help="run the MFE autotuner before generating features")
     ap.add_argument("--epochs", type=int, default=100)
-    ap.add_argument("--lr", type=float, default=0.005)
+    ap.add_argument("--lr", type=float, default=0.001,
+                    help="0.005 (Studio default) diverged after ~75 epochs on this data; 0.001 trains stably")
     ap.add_argument("--clusters", type=int, default=5)
     ap.add_argument("--augment", action="store_true", help="enable spectrogram augmentation (noise + masking)")
     args = ap.parse_args()
@@ -438,6 +491,8 @@ def main() -> None:
         s.set_target(args.device)
     if args.command in ("create", "all"):
         s.create_main(args.window_ms, args.stride_ms)
+    if args.command == "update-impulse":
+        s.create_main(args.window_ms, args.stride_ms, replace=False)
     if args.command in ("configure", "all"):
         s.configure_dsp(MAIN["mfe"], mfe)
         s.configure_dsp(MAIN["spectral"], SPECTRAL_CONFIG)
@@ -452,6 +507,8 @@ def main() -> None:
         s.train_anomaly(MAIN["anomaly"], args.clusters)
     if args.command in ("test", "all"):
         s.test()
+    if args.command == "testresult":
+        s.test_result()
     if args.command in ("perf", "all"):
         s.performance()
     if args.command == "tuner":

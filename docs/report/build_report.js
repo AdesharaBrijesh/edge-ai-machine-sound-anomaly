@@ -28,7 +28,8 @@ const NOTE_FILL = 'FFF4E5';
 
 // ---------- data helpers ----------
 const get = (obj, keyPath) => keyPath.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
-const pct = (v, digits = 1) => (typeof v === 'number' ? `${(v * 100).toFixed(digits)} %` : '—');
+// accepts fractions (0.80) and Edge Impulse's percentages (80.3)
+const pct = (v, digits = 1) => (typeof v === 'number' ? `${(v > 1 ? v : v * 100).toFixed(digits)} %` : '—');
 const fmt = (v, digits = 2, unit = '') => (typeof v === 'number' ? `${v.toFixed(digits)}${unit}` : '—');
 const first = (...vals) => vals.find((v) => v !== undefined && v !== null);
 const D = (keyPath) => get(DATA, keyPath);

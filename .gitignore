@@ -17,3 +17,8 @@ __pycache__/
 # Office lock files
 ~$*
 node_modules/
+
+# Team details (personal information, kept out of the public repo)
+docs/report/team.json
+docs/report/*.docx
+docs/report/*.pdf

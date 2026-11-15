@@ -49,17 +49,15 @@ def find_wasm_format(studio: Studio) -> str:
     return pick["format"]
 
 
-def build_and_download(studio: Studio, fmt: str, engine: str, out_dir: Path) -> Path:
-    req = ei.BuildOnDeviceModelRequest.from_dict({"engine": engine, "modelType": "int8"})
-    job = studio.ok(studio.jobs.build_on_device_model_job(studio.pid, type=fmt, build_on_device_model_request=req),
-                    f"build {fmt}")
-    studio.wait(job.id, f"build {fmt}", timeout=3600)
-    resp = studio.deployment.download_build(studio.pid, type=fmt, model_type="int8", engine=engine,
+def build_and_download(studio: Studio, fmt: str, engine: str, out_dir: Path, model_type: str = "int8") -> Path:
+    job_id = studio.http.post(f"jobs/build-ondevice-model?type={fmt}", {"engine": engine, "modelType": model_type})["id"]
+    studio.wait(job_id, f"build {fmt} ({model_type})", timeout=3600)
+    resp = studio.deployment.download_build(studio.pid, type=fmt, model_type=model_type, engine=engine,
                                             _preload_content=False)
     if resp.status != 200:
         raise RuntimeError(f"download {fmt} failed: HTTP {resp.status}")
     out_dir.mkdir(parents=True, exist_ok=True)
-    dest = out_dir / f"{fmt}-int8-{engine}.zip"
+    dest = out_dir / f"{fmt}-{model_type}-{engine}.zip"
     dest.write_bytes(resp.data)
     print(f"  saved {dest.relative_to(ROOT)} ({len(resp.data) / 1e6:.1f} MB)")
     return dest
@@ -89,6 +87,11 @@ def main() -> None:
     ap.add_argument("--skip-retrain", action="store_true")
     ap.add_argument("--targets", default="cpp,wasm", help="comma list of: cpp, wasm")
     ap.add_argument("--engine", default="tflite-eon")
+    ap.add_argument("--model-type", default="int8", choices=["int8", "float32"],
+                    help="int8 for microcontrollers; float32 is an option for the laptop/browser demo")
+    ap.add_argument("--wasm-model-type", choices=["int8", "float32"], help="override the model type for the WASM build")
+    ap.add_argument("--wasm-format", help="WebAssembly target format (see --list-targets), e.g. wasm or wasm-browser-simd")
+    ap.add_argument("--wasm-engine", help="engine for the WASM build (default: tflite for SIMD builds, else --engine)")
     ap.add_argument("--list-targets", action="store_true")
     args = ap.parse_args()
 
@@ -121,12 +124,15 @@ def main() -> None:
     out_dir = DEPLOY / time.strftime("%Y%m%d-%H%M%S")
     for target in [t.strip() for t in args.targets.split(",") if t.strip()]:
         if target == "cpp":
-            zip_path = build_and_download(studio, "zip", args.engine, out_dir)
+            zip_path = build_and_download(studio, "zip", args.engine, out_dir, args.model_type)
             n = safe_extract(zip_path, CPP_MODEL)
             print(f"  C++ library: {n} files -> {CPP_MODEL.relative_to(ROOT)}")
         elif target == "wasm":
-            fmt = find_wasm_format(studio)
-            zip_path = build_and_download(studio, fmt, args.engine, out_dir)
+            fmt = args.wasm_format or find_wasm_format(studio)
+            # The browser SIMD build links full TensorFlow Lite, which cannot run EON-compiled models;
+            # the plain "wasm" target builds like the microcontroller library and takes EON.
+            engine = args.wasm_engine or ("tflite" if "simd" in fmt else args.engine)
+            zip_path = build_and_download(studio, fmt, engine, out_dir, args.wasm_model_type or args.model_type)
             n = safe_extract(zip_path, DEMO_MODEL, keep=lambda name: name.endswith((".js", ".wasm")), flatten=True)
             print(f"  WebAssembly ({fmt}): {n} files -> {DEMO_MODEL.relative_to(ROOT)}")
         else:

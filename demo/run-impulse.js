@@ -1,25 +1,46 @@
-// Wrapper around the Edge Impulse WebAssembly build (edge-impulse-standalone.js / .wasm),
-// following the documented EdgeImpulseClassifier from the Edge Impulse "WebAssembly (browser)"
-// deployment guide. The standalone script defines the global `Module`.
+// Wrapper around the Edge Impulse WebAssembly build (edge-impulse-standalone.js / .wasm), based on
+// the run-impulse.js Edge Impulse ships with the build. Differences: Module.init() is always called
+// exactly once (the shipped version skips it if the runtime finished loading before init() was
+// called, and without it the classifier's buffers are not set up: "Would write outside feature
+// buffer"), and results only carry what an audio classifier needs.
 let classifierInitialized = false;
+let moduleInitCalled = false;
 Module.onRuntimeInitialized = function () {
   classifierInitialized = true;
 };
 
+function initModuleOnce() {
+  if (moduleInitCalled) return;
+  moduleInitCalled = true;
+  const ret = typeof Module.init === 'function' ? Module.init() : 0;
+  if (typeof ret === 'number' && ret !== 0) throw new Error('Module.init() failed with code ' + ret);
+}
+
 class EdgeImpulseClassifier {
   init() {
-    if (classifierInitialized) return Promise.resolve();
-    return new Promise((resolve) => {
+    if (classifierInitialized) {
+      initModuleOnce();
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
       Module.onRuntimeInitialized = () => {
         classifierInitialized = true;
-        resolve();
+        try { initModuleOnce(); resolve(); } catch (e) { reject(e); }
       };
     });
   }
 
   getProperties() {
     if (!classifierInitialized) throw new Error('Module is not initialized');
-    return Module.get_properties();
+    const raw = Module.get_properties();
+    const proto = Module.emcc_classification_properties_t && Module.emcc_classification_properties_t.prototype;
+    if (!proto) return raw;
+    const props = {};
+    for (const key of Object.getOwnPropertyNames(proto)) {
+      const d = Object.getOwnPropertyDescriptor(proto, key);
+      if (d && typeof d.get === 'function') props[key] = raw[key];
+    }
+    return props;
   }
 
   classify(rawData, debug = false) {

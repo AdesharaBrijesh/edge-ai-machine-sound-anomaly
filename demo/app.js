@@ -48,6 +48,7 @@ async function loadModel() {
     try { props = clf.getProperties() || {}; } catch (e) { /* not exported by every build */ }
     state.freq = Number(props.frequency) || 16000;
     state.winSamples = Number(props.frame_sample_count) || Number(props.input_features_count) || state.freq;
+    console.log('model properties', JSON.stringify(props), 'window samples', state.winSamples);
     const probe = clf.classify(new Float32Array(state.winSamples));
     state.labels = probe.results.map((r) => r.label);
     state.hasAnomaly = props.has_anomaly !== undefined ? Boolean(props.has_anomaly)
@@ -477,7 +478,8 @@ document.querySelectorAll('.tab').forEach((tab) => {
 $('mic-btn').onclick = toggleMic;
 $('thr').max = GAUGE_MAX;
 $('thr').oninput = (e) => setThreshold(e.target.value);
-setThreshold(recall('pump-thr', '1.0'));
+// Known sounds score up to ~4 (99th percentile of the test windows), so the default sits above that.
+setThreshold(recall('pump-thr', '5.0'));
 loadClips();
 loadModel().then(() => {
   if (!state.clf) return;

@@ -1,0 +1,26 @@
+{
+  "classifier_float32": {
+    "device": "Arduino Nano 33 BLE Sense (Cortex-M4F 64MHz)",
+    "latency_ms": 389,
+    "ram_kb": 21.0,
+    "flash_kb": 41.6
+  },
+  "classifier_int8": {
+    "device": "Arduino Nano 33 BLE Sense (Cortex-M4F 64MHz)",
+    "latency_ms": 10,
+    "ram_kb": 7.9,
+    "flash_kb": 34.6
+  },
+  "anomaly_float32": {
+    "device": "Arduino Nano 33 BLE Sense (Cortex-M4F 64MHz)",
+    "latency_ms": 5,
+    "ram_kb": 5.5,
+    "flash_kb": 128.8
+  },
+  "device": "Arduino Nano 33 BLE Sense (Cortex-M4F 64MHz)",
+  "nn_ms": 10,
+  "gmm_ms": 5,
+  "learn_ms": 15,
+  "ram_kb": 7.9,
+  "flash_kb": 163.4
+}

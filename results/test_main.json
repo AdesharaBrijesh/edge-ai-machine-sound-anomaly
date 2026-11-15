@@ -1,0 +1,63 @@
+{
+  "variant": "int8",
+  "accuracy": {
+    "totalSummary": {
+      "good": 2075,
+      "bad": 604
+    },
+    "summaryPerClass": {
+      "abnormal": {
+        "good": 871,
+        "bad": 383
+      },
+      "background": {
+        "good": 171,
+        "bad": 0
+      },
+      "normal": {
+        "good": 1033,
+        "bad": 221
+      },
+      "anomaly": {
+        "good": 0,
+        "bad": 0
+      }
+    },
+    "confusionMatrixValues": {
+      "abnormal": {
+        "abnormal": 871,
+        "background": 0,
+        "normal": 208,
+        "anomaly": 0,
+        "uncertain": 175
+      },
+      "background": {
+        "abnormal": 0,
+        "background": 171,
+        "normal": 0,
+        "anomaly": 0,
+        "uncertain": 0
+      },
+      "normal": {
+        "abnormal": 93,
+        "background": 0,
+        "normal": 1033,
+        "anomaly": 0,
+        "uncertain": 128
+      },
+      "anomaly": {
+        "abnormal": 0,
+        "background": 0,
+        "normal": 0,
+        "anomaly": 0,
+        "uncertain": 0
+      }
+    },
+    "allLabels": [
+      "normal",
+      "background",
+      "abnormal"
+    ],
+    "accuracyScore": 77.45427398282942
+  }
+}

@@ -168,34 +168,39 @@ def fig_training_curves(log: Path, name: str = "training_curves.png") -> None:
     save(fig, name)
 
 
-def fig_shuffle_fix(stuck: Path, fixed: Path) -> None:
-    """Validation accuracy per epoch: default 128-window shuffle (stuck) vs full shuffle (fixed)."""
-    runs = {}
-    for label, path, colour in (("default shuffle (128 windows)", stuck, SERIES["abnormal"]),
-                                ("full shuffle every epoch", fixed, SERIES["normal"])):
-        if not path.exists():
-            return
-        vals = [float(m.group(4)) for m in EPOCH_RE.finditer(path.read_text(encoding="utf-8"))]
-        if len(vals) < 3:
-            return
-        runs[label] = (vals, colour)
-    fig, ax = plt.subplots(figsize=(6.5, 2.6), constrained_layout=True)
-    longest = max(len(v) for v, _ in runs.values())
+def fig_training_story(runs_spec: list[tuple[str, Path, str]]) -> None:
+    """Validation accuracy per epoch for the runs that led to the final model."""
+    runs = []
+    for label, path, colour in runs_spec:
+        if path.exists():
+            vals = [float(m.group(4)) for m in EPOCH_RE.finditer(path.read_text(encoding="utf-8"))]
+            if len(vals) >= 3:
+                runs.append((label, vals, colour))
+    if len(runs) < 2:
+        return
+    fig, ax = plt.subplots(figsize=(6.5, 2.8), constrained_layout=True)
+    longest = max(len(v) for _, v, _ in runs)
     ax.axhline(0.5, color=MUTED, linewidth=1, linestyle=(0, (4, 3)))
-    ax.annotate("chance (50 %)", (longest, 0.5), xytext=(4, -10), textcoords="offset points", color=MUTED, fontsize=8)
-    for label, (vals, colour) in runs.items():
+    ax.text(2, 0.47, "chance", color=MUTED, fontsize=8, va="top")
+    ends = []
+    for label, vals, colour in runs:
         epochs = np.arange(1, len(vals) + 1)
-        ax.plot(epochs, vals, color=colour, linewidth=2, label=label)
-        ax.annotate(f"{label}: {vals[-1]:.0%}", (epochs[-1], vals[-1]), xytext=(4, 6), textcoords="offset points",
-                    color=INK2, fontsize=8)
+        ax.plot(epochs, vals, color=colour, linewidth=1.6, label=label)
+        ends.append([vals[-1], f"{label}: best {max(vals):.0%}", colour])
+    # direct labels at the right edge, nudged apart so they never overlap
+    ends.sort(key=lambda e: e[0])
+    for i in range(1, len(ends)):
+        ends[i][0] = max(ends[i][0], ends[i - 1][0] + 0.07)
+    for y, text, colour in ends:
+        ax.annotate(text, (longest, y), xytext=(6, 0), textcoords="offset points", color=INK2, fontsize=8, va="center")
     ax.set_ylim(0.3, 1.0)
-    ax.set_xlim(1, longest * 1.45)
+    ax.set_xlim(1, longest * 1.6)
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Validation accuracy")
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
     ax.grid(True, axis="y")
-    ax.set_title("Same data, same network: only the shuffle changed", loc="left")
-    ax.legend(loc="lower right", fontsize=8, labelcolor=INK2)
+    ax.set_title("Same data and network: the shuffle, then the learning rate, made it train", loc="left")
+    ax.legend(loc="lower right", fontsize=7.5, labelcolor=INK2)
     save(fig, "shuffle_fix.png")
 
 
@@ -249,7 +254,11 @@ def main() -> None:
     fig_spectrograms(rows)
     fig_mic_path()
     fig_training_curves(RESULTS / "train_main.log")
-    fig_shuffle_fix(RESULTS / "train_stuck.log", RESULTS / "train_main.log")
+    fig_training_story([
+        ("default shuffle, lr 0.005", RESULTS / "train_stuck.log", SERIES["abnormal"]),
+        ("full shuffle, lr 0.005", RESULTS / "train_lr005.log", SERIES["background"]),
+        ("full shuffle, lr 0.001 (final)", RESULTS / "train_main.log", SERIES["normal"]),
+    ])
     fig_anomaly_scores(RESULTS / "demo_eval.json")
     data = {"dataset": dataset_stats(rows)}
     for path in sorted(RESULTS.glob("*.json")):

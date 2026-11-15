@@ -67,7 +67,16 @@ Loss stuck at 0.693 (ln 2), and every window was predicted as the same class. Ed
 feeds windows grouped by class, and the default script shuffles only 4 × batch = 128 windows,
 so batches were single-class. Switching to expert mode and fully shuffling the training set
 each epoch fixed it. We proved the features were fine first: a logistic regression on
-downloaded MFE statistics already reached 78 % on held-out clips.
+downloaded MFE statistics already reached 78 % on held-out clips. A second issue followed:
+Studio's default learning rate (0.005) made validation accuracy swing between about 57 % and
+80 %, then collapse after 75 epochs. 0.001 trained stably. Edge Impulse keeps the best epoch.
+
+**Why does the classifier receive the spectral features if it does not use them?**
+The Edge Impulse SDK runs every processing block and writes their outputs one after another
+into one buffer sized by the classifier's input. With MFE only (2,440 values), the anomaly
+block's 69 spectral values overflowed it at run time ("Would write outside feature buffer").
+Feeding both blocks to the classifier sizes the buffer to 2,509. A Cropping1D layer inside
+the network passes only the MFE part on, so the model itself is unchanged.
 
 ## Results and deployment
 
