@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pump Sound Monitor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Pump Sound Monitor</h1>
+      <p class="sub">Edge AI anomaly detection &middot; the Edge Impulse model runs inside this browser (WebAssembly), no cloud</p>
+    </div>
+    <div id="model-status" class="pill pill-wait">Loading model&hellip;</div>
+  </header>
+
+  <main class="grid">
+    <section class="card controls">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-mode="replay" role="tab">Replay test clip</button>
+        <button class="tab" data-mode="live" role="tab">Live microphone</button>
+      </div>
+
+      <div id="pane-replay" class="pane">
+        <p class="hint">Held-out clips the model never saw. Audio plays through the speakers while the
+          same samples are classified window by window.</p>
+        <div id="clip-list" class="clip-list"></div>
+      </div>
+
+      <div id="pane-live" class="pane hidden">
+        <p class="hint">Hold a phone playing pump sounds near the laptop, or try a hair dryer, a vacuum or
+          speech to see the anomaly score react.</p>
+        <button id="mic-btn" class="btn primary">Start microphone</button>
+        <div class="meter"><div id="level" class="meter-fill"></div></div>
+      </div>
+
+      <div class="threshold">
+        <label for="thr">Unknown-sound threshold <span id="thr-val"></span></label>
+        <input id="thr" type="range" min="0" max="5" step="0.1">
+      </div>
+      <dl id="model-info" class="model-info"></dl>
+    </section>
+
+    <section class="card verdict-card">
+      <div id="verdict" class="verdict v-idle">IDLE</div>
+      <div id="truth" class="truth"></div>
+      <div id="bars" class="bars"></div>
+      <div class="anomaly">
+        <div class="anomaly-head"><span>Anomaly score</span><span id="anom-val">&ndash;</span></div>
+        <div class="gauge"><div id="anom-fill" class="gauge-fill"></div><div id="anom-thr" class="gauge-thr"></div></div>
+      </div>
+      <div class="stats">
+        <div><span id="lat">&ndash;</span><small>ms / inference</small></div>
+        <div><span id="count">0</span><small>windows</small></div>
+        <div><span id="agree">&ndash;</span><small>correct (replay)</small></div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>Timeline <small>one block per inference (every 0.25 s on the latest 1 s window), newest on the right</small></h2>
+      <div id="timeline" class="timeline"></div>
+      <h2>Spectrogram <small>0&ndash;8 kHz</small></h2>
+      <canvas id="spec" class="spec" width="900" height="160"></canvas>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Data: DCASE 2020 Task 2 / MIMII pump recordings (CC BY-NC-SA 4.0). Model: Edge Impulse, MFE + 1D CNN with a GMM anomaly block, int8, EON compiler.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

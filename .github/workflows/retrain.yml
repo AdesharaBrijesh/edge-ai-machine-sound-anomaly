@@ -1,0 +1,38 @@
+# Free-plan stand-in for the guide's scheduled data pipeline: every 2 days, retrain the
+# Edge Impulse impulse and rebuild the C++ library + WebAssembly package.
+# Needs repository secrets EI_API_KEY (admin key) and EI_PROJECT_ID.
+name: Retrain and rebuild (every 2 days)
+
+on:
+  schedule:
+    - cron: "0 3 */2 * *"
+  workflow_dispatch:
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests edgeimpulse-api numpy scipy
+
+      - name: Retrain and build deployments
+        env:
+          EI_API_KEY: ${{ secrets.EI_API_KEY }}
+          EI_PROJECT_ID: ${{ secrets.EI_PROJECT_ID }}
+        run: python scripts/ei_pipeline.py --skip-upload
+
+      - name: Keep the built libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-impulse-deployments
+          path: |
+            deploy/
+            results/retrain_latest.json
+          retention-days: 14
