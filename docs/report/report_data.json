@@ -9,7 +9,12 @@
       "testing/abnormal": 60
     },
     "mic": {
-      "training/abnormal": 15
+      "training/abnormal": 24,
+      "training/background": 16,
+      "training/normal": 24,
+      "testing/abnormal": 6,
+      "testing/background": 4,
+      "testing/normal": 6
     },
     "augmented": 0
   }

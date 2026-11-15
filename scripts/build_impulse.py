@@ -49,18 +49,70 @@ SPECTRAL_CONFIG = {
 }
 
 
-def keras_config(num_filters: int, epochs: int, lr: float) -> dict:
+# Edge Impulse's own generated script for the visual model below, with ONE change: the
+# training set is shuffled completely every epoch. Studio's default shuffle buffer (batch x 4)
+# cannot mix the class-ordered windows Edge Impulse feeds in, so every batch held one class and
+# the network never learned (loss stuck at ln 2 = 0.693). See docs/report, section 7.
+EXPERT_SCRIPT = """import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, InputLayer, Dropout, Conv1D, Conv2D, Flatten, Reshape, MaxPooling1D, MaxPooling2D, AveragePooling2D, BatchNormalization, Permute, ReLU, Softmax, Activation
+from tensorflow.keras.optimizers.legacy import Adam
+
+EPOCHS = args.epochs or 100
+LEARNING_RATE = args.learning_rate or 0.005
+ENSURE_DETERMINISM = args.ensure_determinism
+BATCH_SIZE = args.batch_size or 32
+# Full shuffle (the default buffer of BATCH_SIZE*4 leaves the class-ordered data in single-class batches)
+train_dataset = train_dataset.shuffle(buffer_size=train_sample_count, reshuffle_each_iteration=True)
+train_dataset = train_dataset.batch(BATCH_SIZE, drop_remainder=False)
+validation_dataset = validation_dataset.batch(BATCH_SIZE, drop_remainder=False)
+
+# model architecture (same as the visual editor: Reshape -> 2 x [Conv1D + MaxPool + Dropout] -> Dense)
+model = Sequential()
+model.add(Reshape((int(input_length / {NUM_FILTERS}), {NUM_FILTERS}), input_shape=(input_length, )))
+model.add(Conv1D(16, kernel_size=3, padding='same', activation='relu'))
+model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
+model.add(Dropout(0.25))
+model.add(Conv1D(32, kernel_size=3, padding='same', activation='relu'))
+model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
+model.add(Dropout(0.25))
+model.add(Flatten())
+model.add(Dense(classes, name='y_pred', activation='softmax'))
+
+opt = Adam(learning_rate=LEARNING_RATE, beta_1=0.9, beta_2=0.999)
+callbacks.append(BatchLoggerCallback(BATCH_SIZE, train_sample_count, epochs=EPOCHS, ensure_determinism=ENSURE_DETERMINISM))
+
+model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=["accuracy"])
+model.fit(train_dataset, epochs=EPOCHS, validation_data=validation_dataset, verbose=2, callbacks=callbacks, class_weight=ei_tensorflow.training.get_class_weights(Y_train))
+
+disable_per_channel_quantization = False
+"""
+
+
+def keras_config(num_filters: int, epochs: int, lr: float, augment: bool = False, expert: bool = True) -> dict:
+    if expert:
+        return {
+            "mode": "expert",
+            "script": EXPERT_SCRIPT.replace("{NUM_FILTERS}", str(num_filters)),
+            "trainingCycles": epochs,
+            "learningRate": lr,
+            "batchSize": 32,
+            "trainTestSplit": 0.2,
+            "autoClassWeights": True,
+            "profileInt8": True,
+            "skipEmbeddingsAndMemory": False,
+        }
     return {
         "mode": "visual",
         "trainingCycles": epochs,
         "learningRate": lr,
         "batchSize": 32,
-        "trainTestSplit": 0.8,
+        "trainTestSplit": 0.2,          # validation fraction (0.8 here would validate on 80 %)
         "autoClassWeights": True,
         "profileInt8": True,
         "skipEmbeddingsAndMemory": False,
         "augmentationPolicySpectrogram": {
-            "enabled": True, "warping": False,
+            "enabled": augment, "warping": False,
             "freqMasking": "low", "timeMasking": "low", "gaussianNoise": "low",
         },
         "visualLayers": [
@@ -233,17 +285,24 @@ class Studio:
         job = self.ok(self.jobs.generate_features_job(self.pid, req), "generate features")
         self.wait(job.id, f"features DSP {dsp_id}")
 
-    def train_classifier(self, learn_id: int, num_filters: int, epochs: int, lr: float, tag: str) -> dict:
-        job_id = self.http.post(f"jobs/train/keras/{learn_id}", keras_config(num_filters, epochs, lr))["id"]
+    def train_classifier(self, learn_id: int, num_filters: int, epochs: int, lr: float, tag: str,
+                         augment: bool = False) -> dict:
+        job_id = self.http.post(f"jobs/train/keras/{learn_id}", keras_config(num_filters, epochs, lr, augment))["id"]
         lines = self.wait(job_id, f"train {tag}", timeout=3600)
         RESULTS.mkdir(exist_ok=True)
         (RESULTS / f"train_{tag}.log").write_text("\n".join(lines), encoding="utf-8")
         result = {"job_id": job_id, "float32": self.metrics_from_log(lines, "float32"),
                   "int8": self.metrics_from_log(lines, "int8")}
-        try:
-            result["metadata"] = self.learn.get_keras_metadata(self.pid, learn_id).to_dict()
-        except ei.ApiException as exc:
+        try:  # plain JSON: the generated model fails to parse threshold values
+            result["metadata"] = self.http.get(f"training/keras/{learn_id}/metadata")
+        except Exception as exc:  # metadata is optional
             result["metadata_error"] = str(exc)
+        meta = result.get("metadata") or {}
+        labels = meta.get("labels") or meta.get("classNames")
+        for m in meta.get("modelValidationMetrics") or []:   # one entry per model variant (float32 / int8)
+            result[m.get("type")] = {"accuracy": m.get("accuracy"), "loss": m.get("loss"),
+                                     "confusion_matrix": m.get("confusionMatrix"), "class_names": labels,
+                                     "report": m.get("report"), "on_device": m.get("onDevicePerformance")}
         self.save(f"train_{tag}", result)
         for variant in ("float32", "int8"):
             m = result.get(variant) or {}
@@ -252,16 +311,15 @@ class Studio:
         return result
 
     def train_anomaly(self, learn_id: int, clusters: int) -> dict:
-        cfg = self.learn.get_anomaly(self.pid, learn_id).to_dict()
+        cfg = self.http.get(f"training/anomaly/{learn_id}")
         axes = list(range(len(cfg.get("axes") or [])))
         if not axes:
             raise RuntimeError("anomaly block reports no input axes; generate spectral features first")
         job_id = self.http.post(f"jobs/train/anomaly/{learn_id}", {"axes": axes, "clusterCount": clusters})["id"]
         self.wait(job_id, "train GMM")
-        meta = {}
         try:
-            meta = self.learn.get_gmm_metadata(self.pid, learn_id).to_dict()
-        except ei.ApiException as exc:
+            meta = self.http.get(f"training/anomaly/{learn_id}/gmm/metadata")
+        except Exception as exc:  # metadata is optional
             meta = {"error": str(exc)}
         self.save("train_anomaly", {"axes": len(axes), "clusters": clusters, "metadata": meta})
         print(f"  GMM trained on {len(axes)} spectral features, {clusters} components")
@@ -283,6 +341,52 @@ class Studio:
         acc = summary.get("accuracy") or {}
         print(f"  test {tag}: accuracy {acc.get('accuracyScore')}  summary {acc.get('totalSummary')}")
         return summary
+
+    def performance(self) -> dict:
+        """On-device estimates for the project's target device; raw responses kept for the report."""
+        raw = {}
+        for name, path in (("mfe", f"dsp/{MAIN['mfe']}/performance"), ("spectral", f"dsp/{MAIN['spectral']}/performance"),
+                           ("classifier", f"training/keras/{MAIN['classifier']}/metadata")):
+            try:
+                raw[name] = self.http.get(path)
+            except Exception as exc:  # keep going; the report shows "—" for missing numbers
+                raw[name] = {"error": str(exc)}
+        self.save("performance_raw", raw)
+        summary = {}
+        for m in (raw.get("classifier") or {}).get("modelValidationMetrics") or []:
+            if m.get("type") != "int8":
+                continue
+            for dev in m.get("onDevicePerformance") or []:
+                if dev.get("isDefault") or "nano-33" in str(dev.get("mcu", "")):
+                    eon = dev.get("eon") or dev.get("tflite") or {}
+                    summary.update({"device": dev.get("name"), "nn_ms": dev.get("latency"),
+                                    "nn_ram_kb": (eon.get("ramRequired") or 0) / 1024,
+                                    "nn_flash_kb": (eon.get("romRequired") or 0) / 1024})
+        for name in ("mfe", "spectral"):
+            perf = (raw.get(name) or {}).get("performance") or {}
+            summary[f"{name}_ms"] = perf.get("timePerInferenceMs")
+            summary[f"{name}_ram_kb"] = (perf.get("ramRequired") or 0) / 1024 if perf.get("ramRequired") else None
+        dsp_ms = (summary.get("mfe_ms") or 0) + (summary.get("spectral_ms") or 0)
+        summary["dsp_ms"] = dsp_ms or None
+        if summary.get("nn_ms") is not None:
+            summary["total_latency_ms"] = dsp_ms + summary["nn_ms"]
+        rams = [v for k, v in summary.items() if k.endswith("_ram_kb") and v]
+        summary["ram_kb"] = max(rams) if rams else None
+        summary["flash_kb"] = summary.get("nn_flash_kb")
+        self.save("performance", summary)
+        print("  on-device estimate:", {k: (round(v, 1) if isinstance(v, float) else v) for k, v in summary.items()})
+        return summary
+
+    def tuner(self) -> None:
+        """Start the EON Tuner with the project's default configuration (target = project latency device)."""
+        try:
+            cfg = self.http.get("optimize/config")
+            self.save("eon_tuner_config", cfg)
+            print("  tuner target:", (cfg.get("targetDevice") or {}), "latency budget:", cfg.get("targetLatency"))
+        except Exception as exc:
+            print(f"  could not read tuner config ({exc})")
+        job = self.http.post("jobs/optimize", {})
+        print(f"  EON Tuner started: job {job.get('id')} — results appear in Studio > EON Tuner")
 
     def reference(self) -> None:
         """Extra experiment: the public reference project's settings (2000/1000 ms, MFE, 1D CNN)."""
@@ -310,7 +414,8 @@ class Studio:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["info", "target", "create", "configure", "features", "train", "test", "all", "reference"])
+    ap.add_argument("command", choices=["info", "target", "create", "configure", "features", "train", "test", "all",
+                                        "reference", "perf", "tuner"])
     ap.add_argument("--device", default="nano 33", help="text to match a latency device (target command)")
     ap.add_argument("--window-ms", type=int, default=1000)
     ap.add_argument("--stride-ms", type=int, default=500)
@@ -319,6 +424,7 @@ def main() -> None:
     ap.add_argument("--epochs", type=int, default=100)
     ap.add_argument("--lr", type=float, default=0.005)
     ap.add_argument("--clusters", type=int, default=5)
+    ap.add_argument("--augment", action="store_true", help="enable spectrogram augmentation (noise + masking)")
     args = ap.parse_args()
 
     s = Studio()
@@ -342,10 +448,14 @@ def main() -> None:
         s.generate(MAIN["spectral"], importance=True)
     if args.command in ("train", "all"):
         s.train_classifier(MAIN["classifier"], int(s.dsp_params(MAIN["mfe"]).get("num_filters", 40)),
-                           args.epochs, args.lr, "main")
+                           args.epochs, args.lr, "main", augment=args.augment)
         s.train_anomaly(MAIN["anomaly"], args.clusters)
     if args.command in ("test", "all"):
         s.test()
+    if args.command in ("perf", "all"):
+        s.performance()
+    if args.command == "tuner":
+        s.tuner()
     if args.command == "reference":
         s.reference()
 

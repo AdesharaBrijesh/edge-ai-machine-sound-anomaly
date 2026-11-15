@@ -91,6 +91,15 @@ h2 small, .stats small { font-weight: 400; color: var(--muted); }
 .tl.miss { outline: 2px solid var(--text); outline-offset: -2px; }
 .spec { width: 100%; height: 160px; background: #0b1016; border-radius: 8px; display: block; }
 
+.hidden { display: none; }
+.eval-summary { font-size: 1rem; margin-bottom: 10px; }
+.eval-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.eval-table th, .eval-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.eval-table th { color: var(--muted); font-weight: 600; }
+.eval-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ok { color: var(--normal); }
+.bad { color: var(--abnormal); }
+
 .foot { color: var(--muted); font-size: 0.75rem; padding: 0 24px 24px; }
 
 @media (max-width: 760px) {

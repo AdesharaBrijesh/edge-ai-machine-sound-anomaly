@@ -128,7 +128,10 @@ def fig_mic_path() -> None:
         ax.plot(f[1:], db[1:], color=colour, linewidth=2, label=label)
     ax.set_xscale("log")
     ax.set_xlim(50, 8000)
-    ax.set_ylim(-70, 5)
+    ticks = [50, 100, 200, 500, 1000, 2000, 5000, 8000]
+    ax.set_xticks(ticks, ["50", "100", "200", "500", "1k", "2k", "5k", "8k"])
+    ax.minorticks_off()
+    ax.set_ylim(-45, 5)
     ax.grid(True, axis="y")
     ax.set_xlabel("Frequency (Hz)")
     ax.set_ylabel("Level (dB, peak = 0)")

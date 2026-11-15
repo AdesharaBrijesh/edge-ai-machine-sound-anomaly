@@ -333,6 +333,121 @@ function drawLoop() {
   step();
 }
 
+// ---------- offline modes (?evaluate=1, ?offline=<clip file>) ----------
+async function decodeClip(file) {
+  const ctx = new OfflineAudioContext(1, state.freq, state.freq); // decoding only; resamples to the model rate
+  const audio = await ctx.decodeAudioData(await (await fetch('clips/' + file)).arrayBuffer());
+  return audio.getChannelData(0);
+}
+
+function fftMagnitude(frame) {
+  const n = frame.length;
+  const re = Float32Array.from(frame);
+  const im = new Float32Array(n);
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (-2 * Math.PI) / len;
+    for (let i = 0; i < n; i += len) {
+      for (let k = 0; k < len / 2; k++) {
+        const wr = Math.cos(ang * k);
+        const wi = Math.sin(ang * k);
+        const a = i + k;
+        const b = a + len / 2;
+        const vr = re[b] * wr - im[b] * wi;
+        const vi = re[b] * wi + im[b] * wr;
+        re[b] = re[a] - vr; im[b] = im[a] - vi;
+        re[a] += vr; im[a] += vi;
+      }
+    }
+  }
+  const mag = new Float32Array(n / 2);
+  for (let i = 0; i < n / 2; i++) mag[i] = Math.hypot(re[i], im[i]);
+  return mag;
+}
+
+function drawStaticSpectrogram(samples) {
+  const canvas = $('spec');
+  const g = canvas.getContext('2d');
+  const n = 512;
+  const cols = canvas.width / 2;
+  const hop = Math.max(1, Math.floor((samples.length - n) / cols));
+  const hann = Float32Array.from({ length: n }, (_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1)));
+  const frames = [];
+  let max = -Infinity;
+  for (let c = 0; c < cols; c++) {
+    const frame = new Float32Array(n);
+    for (let i = 0; i < n; i++) frame[i] = (samples[c * hop + i] || 0) * hann[i];
+    const db = Array.from(fftMagnitude(frame), (m) => 20 * Math.log10(m + 1e-9));
+    db.forEach((v) => { if (v > max) max = v; });
+    frames.push(db);
+  }
+  frames.forEach((db, c) => {
+    for (let y = 0; y < canvas.height; y++) {
+      const v = (db[Math.floor((1 - y / canvas.height) * (db.length - 1))] - (max - 70)) / 70;
+      g.fillStyle = heat(Math.max(0, Math.min(1, v)));
+      g.fillRect(c * 2, y, 2, 1);
+    }
+  });
+}
+
+function classifyClip(samples, truth) {
+  const hop = Math.round(state.freq * HOP_MS / 1000);
+  const votes = {};
+  let correct = 0;
+  let total = 0;
+  let anomalySum = 0;
+  for (let end = state.winSamples; end <= samples.length; end += hop) {
+    runInference(samples.subarray(end - state.winSamples, end), truth);
+    const last = state.recent[state.recent.length - 1];
+    const top = Object.entries(last.probs).sort((a, b) => b[1] - a[1])[0][0];
+    votes[top] = (votes[top] || 0) + 1;
+    correct += top === truth ? 1 : 0;
+    anomalySum += last.anomaly;
+    total += 1;
+  }
+  const majority = Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
+  return { windows: total, windowAccuracy: correct / total, majority, meanAnomaly: anomalySum / total };
+}
+
+async function evaluateAll() {
+  const clips = await (await fetch('clips/clips.json')).json();
+  const rows = [];
+  for (const clip of clips) {
+    resetRun('');
+    const r = classifyClip(await decodeClip(clip.file), clip.label);
+    rows.push({ file: clip.file, label: clip.label, machine_id: clip.machine_id, ...r });
+  }
+  const winAcc = rows.reduce((s, r) => s + r.windowAccuracy * r.windows, 0) / rows.reduce((s, r) => s + r.windows, 0);
+  const clipAcc = rows.filter((r) => r.majority === r.label).length / rows.length;
+  const avgLatency = state.latSum / state.count;
+  $('eval').classList.remove('hidden');
+  $('eval-summary').innerHTML = `Window accuracy <b>${(winAcc * 100).toFixed(1)} %</b> · clip accuracy (majority vote) <b>${(clipAcc * 100).toFixed(0)} %</b> · ${state.count} inferences, mean ${avgLatency.toFixed(2)} ms each`;
+  $('eval-table').innerHTML = '<tr><th>Clip</th><th>True label</th><th>Majority prediction</th><th>Windows correct</th><th>Mean anomaly</th></tr>' +
+    rows.map((r) => `<tr><td>${r.file}</td><td>${r.label}</td><td class="${r.majority === r.label ? 'ok' : 'bad'}">${r.majority}</td>` +
+      `<td class="num">${(r.windowAccuracy * 100).toFixed(0)} %</td><td class="num">${r.meanAnomaly.toFixed(2)}</td></tr>`).join('');
+  $('eval-json').textContent = JSON.stringify({ windowAccuracy: winAcc, clipAccuracy: clipAcc, inferences: state.count,
+    meanLatencyMs: avgLatency, clips: rows });
+  document.title = 'EVAL DONE';
+}
+
+async function offlineClip(file) {
+  const clips = await (await fetch('clips/clips.json')).json();
+  const clip = clips.find((c) => c.file === file) || clips[0];
+  const samples = await decodeClip(clip.file);
+  resetRun('');
+  const r = classifyClip(samples, clip.label);
+  drawStaticSpectrogram(samples);
+  $('truth').textContent = `True label: ${clip.label.toUpperCase()} (held-out clip, pump ID ${clip.machine_id}) · ` +
+    `${Math.round(r.windowAccuracy * 100)} % of inferences correct`;
+  document.querySelectorAll('.clip').forEach((b) => b.classList.toggle('playing', b.textContent.includes(`Clip ${clip.file.split('_')[1]} `) && b.textContent.includes(clip.label)));
+  document.title = 'OFFLINE DONE';
+}
+
 // ---------- wiring ----------
 function setThreshold(value) {
   state.threshold = Number(value);
@@ -356,4 +471,9 @@ $('thr').max = GAUGE_MAX;
 $('thr').oninput = (e) => setThreshold(e.target.value);
 setThreshold(recall('pump-thr', '1.0'));
 loadClips();
-loadModel();
+loadModel().then(() => {
+  if (!state.clf) return;
+  const params = new URLSearchParams(location.search);
+  if (params.get('evaluate')) evaluateAll().catch((e) => { console.error(e); document.title = 'EVAL FAILED'; });
+  else if (params.get('offline')) offlineClip(params.get('offline')).catch((e) => { console.error(e); document.title = 'OFFLINE FAILED'; });
+});
