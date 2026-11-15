@@ -1,0 +1,1 @@
+{"name":"pump-sound-report","private":true,"description":"Builds the project report (DOCX) from results/ and docs/screenshots/","dependencies":{"docx":"^9.15.4"}}

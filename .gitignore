@@ -16,3 +16,4 @@ __pycache__/
 
 # Office lock files
 ~$*
+node_modules/

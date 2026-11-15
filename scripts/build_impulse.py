@@ -30,7 +30,7 @@ from pathlib import Path
 import edgeimpulse_api as ei
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import ROOT, get_config  # noqa: E402
+from common import ROOT, EIClient, get_config  # noqa: E402
 
 API_HOST = "https://studio.edgeimpulse.com/v1"
 RESULTS = ROOT / "results"
@@ -78,6 +78,9 @@ class Studio:
     def __init__(self):
         key, pid = get_config()
         self.pid = int(pid)
+        # Plain JSON client for training calls: the generated request models serialise extra
+        # default fields (e.g. assertGpuUsagePercentage) that the API refuses from normal users.
+        self.http = EIClient(key, pid)
         client = ei.ApiClient(ei.Configuration(host=API_HOST, api_key={"ApiKeyAuthentication": key}))
         self.projects = ei.ProjectsApi(client)
         self.impulse = ei.ImpulseApi(client)
@@ -231,10 +234,12 @@ class Studio:
         self.wait(job.id, f"features DSP {dsp_id}")
 
     def train_classifier(self, learn_id: int, num_filters: int, epochs: int, lr: float, tag: str) -> dict:
-        req = ei.SetKerasParameterRequest.from_dict(keras_config(num_filters, epochs, lr))
-        job = self.ok(self.jobs.train_keras_job(self.pid, learn_id, req), "train classifier")
-        lines = self.wait(job.id, f"train {tag}", timeout=3600)
-        result = {"float32": self.metrics_from_log(lines, "float32"), "int8": self.metrics_from_log(lines, "int8")}
+        job_id = self.http.post(f"jobs/train/keras/{learn_id}", keras_config(num_filters, epochs, lr))["id"]
+        lines = self.wait(job_id, f"train {tag}", timeout=3600)
+        RESULTS.mkdir(exist_ok=True)
+        (RESULTS / f"train_{tag}.log").write_text("\n".join(lines), encoding="utf-8")
+        result = {"job_id": job_id, "float32": self.metrics_from_log(lines, "float32"),
+                  "int8": self.metrics_from_log(lines, "int8")}
         try:
             result["metadata"] = self.learn.get_keras_metadata(self.pid, learn_id).to_dict()
         except ei.ApiException as exc:
@@ -251,9 +256,8 @@ class Studio:
         axes = list(range(len(cfg.get("axes") or [])))
         if not axes:
             raise RuntimeError("anomaly block reports no input axes; generate spectral features first")
-        req = ei.StartTrainingRequestAnomaly.from_dict({"axes": axes, "clusterCount": clusters})
-        job = self.ok(self.jobs.train_anomaly_job(self.pid, learn_id, req), "train anomaly")
-        self.wait(job.id, "train GMM")
+        job_id = self.http.post(f"jobs/train/anomaly/{learn_id}", {"axes": axes, "clusterCount": clusters})["id"]
+        self.wait(job_id, "train GMM")
         meta = {}
         try:
             meta = self.learn.get_gmm_metadata(self.pid, learn_id).to_dict()

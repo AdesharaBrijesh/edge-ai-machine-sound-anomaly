@@ -1,0 +1,16 @@
+{
+  "dataset": {
+    "dcase": {
+      "demo/normal": 5,
+      "training/normal": 240,
+      "testing/normal": 60,
+      "demo/abnormal": 5,
+      "training/abnormal": 240,
+      "testing/abnormal": 60
+    },
+    "mic": {
+      "training/abnormal": 15
+    },
+    "augmented": 0
+  }
+}
