@@ -824,7 +824,7 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('resize', () => { drawProbChart(); });
 
-document.querySelectorAll('canvas[height]').forEach((c) => { c.style.height = `${c.getAttribute('height')}px`; });
+document.querySelectorAll('canvas[height]').forEach((c) => { c.dataset.cssHeight = c.getAttribute('height'); c.style.height = `${c.dataset.cssHeight}px`; });
 drawProbChart();
 Charts.heatmap($('mfe-live'), { frames: 0, bands: 40, data: [], empty: 'Waiting for audio' });
 loadCard();

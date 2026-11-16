@@ -35,8 +35,11 @@ const Charts = (() => {
 
   function setup(canvas) {
     const dpr = window.devicePixelRatio || 1;
+    // remember the intended CSS height once: setting canvas.height below rewrites the height
+    // attribute, so reading it again would compound the device-pixel ratio (zoom != 100 %)
+    if (!canvas.dataset.cssHeight) canvas.dataset.cssHeight = canvas.getAttribute('height') || canvas.clientHeight || 200;
+    const h = Number(canvas.dataset.cssHeight);
     const w = canvas.clientWidth || canvas.width;
-    const h = Number(canvas.getAttribute('height')) || canvas.clientHeight || 200;
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
