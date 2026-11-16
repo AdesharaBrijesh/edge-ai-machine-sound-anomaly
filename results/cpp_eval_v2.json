@@ -1,0 +1,915 @@
+{
+  "source_csv": "results/cpp_eval_v2.csv",
+  "labels": [
+    "abnormal",
+    "background",
+    "normal"
+  ],
+  "threshold": 0.6,
+  "overall": {
+    "windows": 2679,
+    "window_accuracy": 0.7872340425531915,
+    "confident_share": 0.8693542366554684,
+    "confident_accuracy": 0.8295405753542293,
+    "clips": 141,
+    "clip_accuracy": 0.7872340425531915
+  },
+  "dcase": {
+    "windows": 2280,
+    "window_accuracy": 0.7833333333333333,
+    "confident_share": 0.8679824561403509,
+    "confident_accuracy": 0.8236483072258717,
+    "clips": 120,
+    "clip_accuracy": 0.7833333333333333
+  },
+  "mic": {
+    "windows": 399,
+    "window_accuracy": 0.8095238095238095,
+    "confident_share": 0.8771929824561403,
+    "confident_accuracy": 0.8628571428571429,
+    "clips": 21,
+    "clip_accuracy": 0.8095238095238095
+  },
+  "per_class": {
+    "abnormal": {
+      "windows": 1254,
+      "recall": 0.8141945773524721
+    },
+    "background": {
+      "windows": 171,
+      "recall": 1.0
+    },
+    "normal": {
+      "windows": 1254,
+      "recall": 0.7312599681020734
+    }
+  },
+  "confusion": {
+    "abnormal": {
+      "abnormal": 1021,
+      "background": 0,
+      "normal": 233
+    },
+    "background": {
+      "abnormal": 0,
+      "background": 171,
+      "normal": 0
+    },
+    "normal": {
+      "abnormal": 337,
+      "background": 0,
+      "normal": 917
+    }
+  },
+  "anomaly_mean_by_label": null,
+  "mean_dsp_ms": 1.0977976857036207,
+  "mean_classification_ms": 1.0126913027248974,
+  "clips": [
+    {
+      "file": "abnormal.mic-pump-id00-test-00000035.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.631578947368421
+    },
+    {
+      "file": "abnormal.mic-pump-id00-test-00000071.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.mic-pump-id02-test-00000024.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.mic-pump-id02-test-00000034.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.7894736842105263
+    },
+    {
+      "file": "abnormal.mic-pump-id04-test-00000033.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.2631578947368421
+    },
+    {
+      "file": "abnormal.mic-pump-id06-test-00000087.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.10526315789473684
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-005.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-010.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-015.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-020.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-025.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-030.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-035.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-040.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "background.mic-bg-20261115-2304-045.wav",
+      "label": "background",
+      "majority": "background",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.mic-pump-id00-test-00000008.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.mic-pump-id00-test-00000043.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.2631578947368421
+    },
+    {
+      "file": "normal.mic-pump-id02-test-00000014.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.3157894736842105
+    },
+    {
+      "file": "normal.mic-pump-id02-test-00000048.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.7368421052631579
+    },
+    {
+      "file": "normal.mic-pump-id04-test-00000005.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.9473684210526315
+    },
+    {
+      "file": "normal.mic-pump-id06-test-00000036.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.9473684210526315
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000004.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000007.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.3684210526315789
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000012.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000024.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.47368421052631576
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000026.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.10526315789473684
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000035.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000043.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000054.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000071.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000083.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.15789473684210525
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000105.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.5789473684210527
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000123.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000126.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000131.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.7368421052631579
+    },
+    {
+      "file": "abnormal.pump-id00-test-00000139.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000000.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000004.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000021.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.8947368421052632
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000024.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000026.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.8947368421052632
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000032.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000034.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000036.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.8421052631578947
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000041.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000043.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000044.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000056.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000081.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000088.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id02-test-00000100.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000000.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.15789473684210525
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000001.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000004.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.5263157894736842
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000006.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000013.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000026.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000033.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000039.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000054.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000074.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.05263157894736842
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000080.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000092.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000093.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.9473684210526315
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000097.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id04-test-00000098.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000007.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000010.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000019.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.05263157894736842
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000025.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000027.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.7368421052631579
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000029.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000038.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000039.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000043.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000048.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.5789473684210527
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000050.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 0.8421052631578947
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000054.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000069.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000087.wav",
+      "label": "abnormal",
+      "majority": "normal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "abnormal.pump-id06-test-00000088.wav",
+      "label": "abnormal",
+      "majority": "abnormal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000002.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000006.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.3684210526315789
+    },
+    {
+      "file": "normal.pump-id00-test-00000008.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000020.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.5789473684210527
+    },
+    {
+      "file": "normal.pump-id00-test-00000023.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000025.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.15789473684210525
+    },
+    {
+      "file": "normal.pump-id00-test-00000034.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.8947368421052632
+    },
+    {
+      "file": "normal.pump-id00-test-00000043.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.47368421052631576
+    },
+    {
+      "file": "normal.pump-id00-test-00000044.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.9473684210526315
+    },
+    {
+      "file": "normal.pump-id00-test-00000046.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000048.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000049.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000056.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000082.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id00-test-00000099.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000001.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000004.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000005.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.6842105263157895
+    },
+    {
+      "file": "normal.pump-id02-test-00000009.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000012.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.2631578947368421
+    },
+    {
+      "file": "normal.pump-id02-test-00000014.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000019.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.3157894736842105
+    },
+    {
+      "file": "normal.pump-id02-test-00000044.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000048.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.42105263157894735
+    },
+    {
+      "file": "normal.pump-id02-test-00000049.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.47368421052631576
+    },
+    {
+      "file": "normal.pump-id02-test-00000060.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.3684210526315789
+    },
+    {
+      "file": "normal.pump-id02-test-00000062.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000067.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.0
+    },
+    {
+      "file": "normal.pump-id02-test-00000090.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.631578947368421
+    },
+    {
+      "file": "normal.pump-id02-test-00000099.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000005.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.8421052631578947
+    },
+    {
+      "file": "normal.pump-id04-test-00000006.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000012.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000024.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000033.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000036.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000041.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.8421052631578947
+    },
+    {
+      "file": "normal.pump-id04-test-00000048.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000050.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000052.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000061.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000072.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000076.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000083.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id04-test-00000090.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id06-test-00000014.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.5263157894736842
+    },
+    {
+      "file": "normal.pump-id06-test-00000032.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id06-test-00000033.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.9473684210526315
+    },
+    {
+      "file": "normal.pump-id06-test-00000034.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id06-test-00000036.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id06-test-00000039.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id06-test-00000048.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.7368421052631579
+    },
+    {
+      "file": "normal.pump-id06-test-00000052.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id06-test-00000068.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.8421052631578947
+    },
+    {
+      "file": "normal.pump-id06-test-00000070.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    },
+    {
+      "file": "normal.pump-id06-test-00000071.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.42105263157894735
+    },
+    {
+      "file": "normal.pump-id06-test-00000079.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.47368421052631576
+    },
+    {
+      "file": "normal.pump-id06-test-00000084.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 0.5263157894736842
+    },
+    {
+      "file": "normal.pump-id06-test-00000089.wav",
+      "label": "normal",
+      "majority": "abnormal",
+      "window_accuracy": 0.3157894736842105
+    },
+    {
+      "file": "normal.pump-id06-test-00000096.wav",
+      "label": "normal",
+      "majority": "normal",
+      "window_accuracy": 1.0
+    }
+  ]
+}

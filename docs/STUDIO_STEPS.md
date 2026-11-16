@@ -16,14 +16,13 @@ which figure of the reference guide it mirrors.
 | `01-dashboard.png` | Dashboard | Project info panel with **Target device** (Arduino Nano 33 BLE Sense) | Fig. 2 |
 | `02-data-acquisition.png` | Data acquisition | Sample list, labels, the training/testing split ratio | Fig. 9 |
 | `03-data-explorer.png` | Data acquisition → Data explorer tab | The clustered dataset view (optional) | – |
-| `04-impulse-design.png` | Impulse design → Create impulse | Input block, MFE, Spectral features, Classifier, Anomaly detection | Fig. 15 |
+| `04-impulse-design.png` | Impulse design → Create impulse | Input block, MFE, Classifier | Fig. 15 |
 | `05-mfe-parameters.png` | Impulse design → MFE | Parameters panel and the spectrogram (DSP result) | Fig. 16 |
 | `06-mfe-features.png` | MFE → Generate features tab | Feature explorer and on-device performance | Figs. 3a, 17 |
-| `07-spectral-features.png` | Spectral features → Generate features tab | Feature explorer and feature importance | Fig. 19 |
+| `07-anomaly-explorer.png` | Anomaly detection (**first project, 1164931**) | v1 GMM on the Spectral features | – |
 | `08-classifier.png` | Classifier | Accuracy, loss, confusion matrix, on-device performance (Quantized int8) | Figs. 3b, 20 |
-| `09-anomaly.png` | Anomaly detection | GMM settings and the anomaly explorer | – |
-| `10-model-testing.png` | Model testing | Accuracy and confusion matrix | Fig. 21 |
-| `11-eon-tuner.png` | EON Tuner | The results list after the run | Fig. 13 |
+| `10-model-testing.png` | Model testing (**first project, 1164931**) | v1 accuracy and confusion matrix | Fig. 21 |
+| `11-eon-tuner.png` | EON Tuner | The configuration page (no run: no compute left) | Fig. 13 |
 | `12-deployment.png` | Deployment | C++ library selected, EON compiler on, int8 vs float32 table | Fig. 22 |
 | `13-versioning.png` | Versioning | The saved version(s) | – |
 | `14-pipeline.png` | Data acquisition → Data sources | The pipeline with Retrain + Create version + Create deployment | Figs. 32–33 |

@@ -71,12 +71,19 @@ downloaded MFE statistics already reached 78 % on held-out clips. A second issue
 Studio's default learning rate (0.005) made validation accuracy swing between about 57 % and
 80 %, then collapse after 75 epochs. 0.001 trained stably. Edge Impulse keeps the best epoch.
 
-**Why does the classifier receive the spectral features if it does not use them?**
-The Edge Impulse SDK runs every processing block and writes their outputs one after another
-into one buffer sized by the classifier's input. With MFE only (2,440 values), the anomaly
-block's 69 spectral values overflowed it at run time ("Would write outside feature buffer").
-Feeding both blocks to the classifier sizes the buffer to 2,509. A Cropping1D layer inside
-the network passes only the MFE part on, so the model itself is unchanged.
+**Why does the anomaly detector use MFE features instead of its own Spectral Analysis block?**
+We tried two processing blocks first. The deployed SDK writes every block's output into one
+buffer sized by the classifier's input, so the anomaly block's 69 spectral values overflowed
+it at run time ("Would write outside feature buffer"). Concatenating both blocks into the
+classifier fixed the buffer but broke int8: one input scale for MFE values (0–0.8) and
+spectral statistics (up to ~400) dropped int8 accuracy from 91 % to 6 %. So both learners now
+share the MFE block; the GMM uses all 40 mel bands of two frames (80 values).
+
+**What is per-tensor input quantisation and why did it matter?**
+An int8 model stores its input as 8-bit integers with one scale and zero point for the whole
+input tensor. If some features are hundreds of times larger than others, the small ones round
+to nearly the same integer and their information is lost. Keep features in comparable ranges
+(normalise) before feeding one int8 network.
 
 ## Results and deployment
 

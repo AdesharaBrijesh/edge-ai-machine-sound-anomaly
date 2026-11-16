@@ -1,8 +1,8 @@
 # Pump Sound Anomaly Detection with Edge Impulse (Edge AI)
 
 Predictive maintenance by ear: a tiny neural network listens to an industrial pump and flags
-**abnormal** operation (leakage, contamination, clogging, damage) and **unknown sounds**. It
-runs entirely on the edge device; here the laptop stands in for a microcontroller.
+**abnormal** operation (leakage, contamination, clogging, damage) and tells both apart from
+a quiet room (**background**). It runs entirely on the edge device; here the laptop stands in for a microcontroller.
 
 The project follows the workflow of Edge Impulse's *Industrial Productivity Solutions Guide*
 (data → DSP → model → EON Tuner → testing → C++ deployment → automation → collaboration). It
@@ -10,9 +10,9 @@ uses the free Developer plan, so the guide's Enterprise-only parts are rebuilt w
 
 | | |
 |---|---|
-| Classes | `normal`, `abnormal`, `background` + GMM anomaly score for never-heard sounds |
+| Classes | `normal`, `abnormal`, `background` (a GMM anomaly block was tried in v1; see Results) |
 | Data | DCASE 2020 Task 2 dev set, pump (MIMII), 16 kHz mono, 10 s clips + laptop-mic recordings |
-| Impulse | 1000 ms window / 500 ms stride → MFE → 1D CNN; Spectral Analysis → GMM |
+| Impulse | 1000 ms window / 500 ms stride → MFE (61 × 40) → 1D CNN, int8 |
 | Deployment | C++ library (EON, int8) built and run in WSL Ubuntu; WebAssembly live dashboard |
 | Target estimate | Arduino Nano 33 BLE Sense (Cortex-M4F 64 MHz, onboard microphone) |
 
@@ -58,20 +58,38 @@ python scripts/upload_to_ei.py --dir data/mic/training --category training
 python scripts/upload_to_ei.py --dir data/mic/testing --category testing
 python scripts/upload_to_ei.py --dir data/augmented/training --category training
 
-python scripts/build_impulse.py target --device "nano 33"
-python scripts/build_impulse.py all
+python scripts/run_all.py                                       # target, upload, impulse, features, train, build
 
 python scripts/ei_pipeline.py --skip-upload --skip-retrain      # C++ + WASM builds
 bash deployment/cpp-linux/build.sh                              # in WSL
 python scripts/wav_to_features.py demo/clips/abnormal_1_id00.wav --out deployment/cpp-linux/features-abnormal.txt
 bash deployment/cpp-linux/run.sh deployment/cpp-linux/features-abnormal.txt
+bash deployment/cpp-linux/eval.sh                               # in WSL: score the whole test set
+python scripts/eval_cpp_results.py results/cpp_eval.csv
 
 python demo/serve.py                                            # http://localhost:8000
 ```
 
 ## Results
 
-_To be filled in after training._
+Final model (v2, Edge Impulse project 1165553), int8. The test set (141 held-out clips, 2,679
+one-second windows) is scored with the exported C++ library itself (`deployment/cpp-linux/eval.sh`
++ `scripts/eval_cpp_results.py`), because the free plan's compute was used up by training.
+
+| | Final (v2) | v1 (same network, 100 epochs) |
+|---|---|---|
+| Validation accuracy, int8 | 81.9 % | 91.4 % |
+| Test windows correct | 78.7 % | 83.7 % |
+| Test clips correct (majority of 19 windows) | 78.7 % | 83.7 % |
+| Recall abnormal / normal / background | 81.4 % / 73.1 % / 100.0 % | 78.9 % / 86.4 % / 100.0 % |
+| Classifier on Arduino Nano 33 BLE Sense (est.) | 7 ms int8 vs 150 ms float32 | 10 ms int8 |
+| C++ on the laptop, per window | 1.1 ms DSP + 1.0 ms inference | |
+
+Why v2 is a little weaker than v1: the second project had 25 compute minutes, so v2 was trained
+with batch 256 for a 240 s budget (58 epochs) instead of 100 epochs. Why v2 has no anomaly
+block: v1's second processing block (Spectral Analysis → GMM) overflowed the SDK's feature buffer
+at run time ("Would write outside feature buffer"), and a GMM on the MFE features crashed
+Edge Impulse's profiler. The full story, with the debugging lessons, is in the report.
 
 ## Data and attribution
 

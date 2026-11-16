@@ -32,10 +32,10 @@ for d in edge-impulse-sdk model-parameters tflite-model; do
 done
 
 cd "$APP"
-make clean >/dev/null 2>&1 || true
+APP_CUSTOM=1 make clean >/dev/null 2>&1 || true
 if ! APP_CUSTOM=1 make -j"$(nproc)"; then
   echo ">>> Build failed with the default flags; retrying with C17 (GCC 15 compiles C as C23 by default)"
-  make clean >/dev/null 2>&1 || true
+  APP_CUSTOM=1 make clean >/dev/null 2>&1 || true
   APP_CUSTOM=1 make -j"$(nproc)" CC="gcc -std=gnu17"
 fi
 echo "Built: $APP/build/custom"

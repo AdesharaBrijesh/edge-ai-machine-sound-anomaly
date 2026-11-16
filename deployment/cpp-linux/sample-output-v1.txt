@@ -1,0 +1,24 @@
+﻿$ ./build/custom features-abnormal.txt   # held-out abnormal window
+Timing: DSP 5 ms, inference 94 us, anomaly 0 ms, postprocessing 2 us
+#Classification predictions:
+  abnormal: 0.996094
+  background: 0.000000
+  normal: 0.000000
+Anomaly prediction: 29.171776
+
+$ ./build/custom features-normal.txt   # held-out normal window
+Timing: DSP 5 ms, inference 76 us, anomaly 0 ms, postprocessing 1 us
+#Classification predictions:
+  abnormal: 0.000000
+  background: 0.000000
+  normal: 0.996094
+Anomaly prediction: 29.925678
+
+$ ./build/custom features-background.txt   # held-out background window
+Timing: DSP 4 ms, inference 72 us, anomaly 0 ms, postprocessing 1 us
+#Classification predictions:
+  abnormal: 0.000000
+  background: 0.996094
+  normal: 0.000000
+Anomaly prediction: 35.457123
+

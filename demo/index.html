@@ -29,8 +29,8 @@
       </div>
 
       <div id="pane-live" class="pane hidden">
-        <p class="hint">Hold a phone playing pump sounds near the laptop, or try a hair dryer, a vacuum or
-          speech to see the anomaly score react.</p>
+        <p class="hint">Hold a phone playing pump sounds near the laptop, or stay quiet / talk to see
+          the background class.</p>
         <button id="mic-btn" class="btn primary">Start microphone</button>
         <div class="meter"><div id="level" class="meter-fill"></div></div>
       </div>
@@ -73,7 +73,7 @@
   </main>
 
   <footer class="foot">
-    Data: DCASE 2020 Task 2 / MIMII pump recordings (CC BY-NC-SA 4.0). Model: Edge Impulse, MFE + 1D CNN with a GMM anomaly block, int8, EON compiler.
+    Data: DCASE 2020 Task 2 / MIMII pump recordings (CC BY-NC-SA 4.0). Model: Edge Impulse, MFE + 1D CNN, int8 (WebAssembly build).
   </footer>
 
   <script src="app.js"></script>

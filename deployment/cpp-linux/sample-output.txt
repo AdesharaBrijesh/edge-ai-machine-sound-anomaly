@@ -1,0 +1,20 @@
+# ./build/custom output, project 1165553 C++ library (int8, EON), WSL Ubuntu, 2026-11-16
+Built: ~/ei-standalone-linux/build/custom
+=== features-abnormal.txt
+Timing: DSP 2 ms, inference 559 us, anomaly 0 ms
+#Classification predictions:
+  abnormal: 0.996094
+  background: 0.000000
+  normal: 0.000000
+=== features-normal.txt
+Timing: DSP 951 us, inference 508 us, anomaly 0 ms
+#Classification predictions:
+  abnormal: 0.003906
+  background: 0.000000
+  normal: 0.996094
+=== features-background.txt
+Timing: DSP 959 us, inference 512 us, anomaly 0 ms
+#Classification predictions:
+  abnormal: 0.000000
+  background: 0.996094
+  normal: 0.000000

@@ -71,10 +71,12 @@ function renderModelInfo() {
   const rows = [
     ['Labels', state.labels.join(', ')],
     ['Window', `${Math.round(state.winSamples / state.freq * 1000)} ms @ ${state.freq} Hz`],
-    ['Anomaly block', state.hasAnomaly ? 'yes (GMM)' : 'no'],
+    ['Anomaly block', state.hasAnomaly ? 'yes (GMM)' : 'no (classifier only)'],
     ['Runs on', 'WebAssembly in this browser'],
   ];
   $('model-info').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  // a classifier-only build has no anomaly score: hide the gauge and threshold instead of showing 0.00
+  document.querySelectorAll('.anomaly, .threshold').forEach((el) => el.classList.toggle('hidden', !state.hasAnomaly));
 }
 
 function renderBars() {
@@ -337,9 +339,36 @@ function drawLoop() {
 }
 
 // ---------- offline modes (?evaluate=1, ?offline=<clip file>) ----------
+// 16-bit PCM mono WAV at the model rate: read the samples directly (synchronous, so headless
+// Chrome's virtual clock cannot run out mid-decode). Anything else goes through decodeAudioData.
+function parsePcm16Wav(buf) {
+  const v = new DataView(buf);
+  if (v.byteLength < 44 || v.getUint32(0, false) !== 0x52494646 || v.getUint32(8, false) !== 0x57415645) return null;
+  let fmt = null;
+  for (let p = 12; p + 8 <= v.byteLength;) {
+    const id = v.getUint32(p, false);
+    const size = v.getUint32(p + 4, true);
+    if (id === 0x666d7420) {  // 'fmt '
+      fmt = { format: v.getUint16(p + 8, true), channels: v.getUint16(p + 10, true),
+        rate: v.getUint32(p + 12, true), bits: v.getUint16(p + 22, true) };
+    } else if (id === 0x64617461 && fmt) {  // 'data'
+      if (fmt.format !== 1 || fmt.channels !== 1 || fmt.bits !== 16 || fmt.rate !== state.freq) return null;
+      const n = Math.floor(Math.min(size, v.byteLength - p - 8) / 2);
+      const out = new Float32Array(n);
+      for (let i = 0; i < n; i++) out[i] = v.getInt16(p + 8 + 2 * i, true) / 32768;
+      return out;
+    }
+    p += 8 + size + (size & 1);
+  }
+  return null;
+}
+
 async function decodeClip(file) {
+  const buf = await (await fetch('clips/' + file)).arrayBuffer();
+  const direct = parsePcm16Wav(buf);
+  if (direct) return direct;
   const ctx = new OfflineAudioContext(1, state.freq, state.freq); // decoding only; resamples to the model rate
-  const audio = await ctx.decodeAudioData(await (await fetch('clips/' + file)).arrayBuffer());
+  const audio = await ctx.decodeAudioData(buf);
   return audio.getChannelData(0);
 }
 
@@ -434,7 +463,9 @@ async function evaluateAll() {
   const avgLatency = state.latSum / state.count;
   $('eval').classList.remove('hidden');
   $('eval-summary').innerHTML = `Pump clips: window accuracy <b>${(winAcc * 100).toFixed(1)} %</b>, clip accuracy (majority vote) <b>${(clipAcc * 100).toFixed(0)} %</b> · ` +
-    `mean anomaly score: pump clips ${meanOf(known).toFixed(2)}, unknown sounds ${meanOf(unknown).toFixed(2)} · ${state.count} inferences, ${avgLatency.toFixed(2)} ms each`;
+    (state.hasAnomaly ? `mean anomaly score: pump clips ${meanOf(known).toFixed(2)}, unknown sounds ${meanOf(unknown).toFixed(2)}`
+      : 'no anomaly block in this build: unknown sounds are forced into one of the three classes') +
+    ` · ${state.count} inferences, ${avgLatency.toFixed(2)} ms each`;
   $('eval-table').innerHTML = '<tr><th>Clip</th><th>True label</th><th>Majority prediction</th><th>Windows correct</th><th>Mean anomaly</th></tr>' +
     rows.map((r) => `<tr><td>${r.file}</td><td>${r.label}</td><td class="${r.majority === r.label ? 'ok' : 'bad'}">${r.majority}</td>` +
       `<td class="num">${(r.windowAccuracy * 100).toFixed(0)} %</td><td class="num">${r.meanAnomaly.toFixed(2)}</td></tr>`).join('');

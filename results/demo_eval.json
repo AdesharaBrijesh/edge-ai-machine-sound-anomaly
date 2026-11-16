@@ -1,0 +1,128 @@
+{
+  "windowAccuracy": 0.7756756756756756,
+  "clipAccuracy": 0.7,
+  "inferences": 481,
+  "meanLatencyMs": 0,
+  "meanAnomalyKnown": 0,
+  "meanAnomalyUnknown": 0,
+  "threshold": 5,
+  "clips": [
+    {
+      "file": "normal_1_id00.wav",
+      "label": "normal",
+      "machine_id": "00",
+      "windows": 37,
+      "windowAccuracy": 1,
+      "majority": "normal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "normal_2_id02.wav",
+      "label": "normal",
+      "machine_id": "02",
+      "windows": 37,
+      "windowAccuracy": 0.02702702702702703,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "normal_3_id04.wav",
+      "label": "normal",
+      "machine_id": "04",
+      "windows": 37,
+      "windowAccuracy": 1,
+      "majority": "normal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "normal_4_id06.wav",
+      "label": "normal",
+      "machine_id": "06",
+      "windows": 37,
+      "windowAccuracy": 0.40540540540540543,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "normal_5_id00.wav",
+      "label": "normal",
+      "machine_id": "00",
+      "windows": 37,
+      "windowAccuracy": 0.32432432432432434,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "abnormal_1_id00.wav",
+      "label": "abnormal",
+      "machine_id": "00",
+      "windows": 37,
+      "windowAccuracy": 1,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "abnormal_2_id02.wav",
+      "label": "abnormal",
+      "machine_id": "02",
+      "windows": 37,
+      "windowAccuracy": 1,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "abnormal_3_id04.wav",
+      "label": "abnormal",
+      "machine_id": "04",
+      "windows": 37,
+      "windowAccuracy": 1,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "abnormal_4_id06.wav",
+      "label": "abnormal",
+      "machine_id": "06",
+      "windows": 37,
+      "windowAccuracy": 1,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "abnormal_5_id00.wav",
+      "label": "abnormal",
+      "machine_id": "00",
+      "windows": 37,
+      "windowAccuracy": 1,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "unknown_1_white_noise.wav",
+      "label": "unknown",
+      "machine_id": "white noise",
+      "windows": 37,
+      "windowAccuracy": 0,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "unknown_2_two_tone_hum.wav",
+      "label": "unknown",
+      "machine_id": "two tone hum",
+      "windows": 37,
+      "windowAccuracy": 0,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    },
+    {
+      "file": "unknown_3_frequency_sweep.wav",
+      "label": "unknown",
+      "machine_id": "frequency sweep",
+      "windows": 37,
+      "windowAccuracy": 0,
+      "majority": "abnormal",
+      "meanAnomaly": 0
+    }
+  ]
+}

@@ -58,14 +58,37 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, InputLayer, Dropout, Conv1D, Conv2D, Flatten, Reshape, MaxPooling1D, MaxPooling2D, AveragePooling2D, BatchNormalization, Permute, ReLU, Softmax, Activation, Cropping1D
 from tensorflow.keras.optimizers.legacy import Adam
 
-# The classifier receives [MFE features | spectral features] so that the deployed SDK's feature
-# buffer (sized by this block's input) holds the output of BOTH processing blocks. Only the
-# MFE part feeds the network; the spectral part is for the GMM anomaly block.
+# Only the MFE features feed the network. (If extra features follow them in the input, they are
+# cropped off. Do not rely on that for int8: one input scale for mixed-range features breaks
+# quantisation, which is why the final impulse uses a single MFE block for both learn blocks.)
 MFE_FEATURES = {MFE_FEATURES}
 EPOCHS = {EPOCHS}
 LEARNING_RATE = {LEARNING_RATE}
 ENSURE_DETERMINISM = args.ensure_determinism
-BATCH_SIZE = args.batch_size or 32
+BATCH_SIZE = {BATCH_SIZE}
+TIME_BUDGET_S = {TIME_BUDGET_S}   # stop fitting after this many seconds (0 = no limit); compute is metered
+
+
+import time
+class TimeBudget(tf.keras.callbacks.Callback):
+    # Stops training when the wall-clock budget is used up and restores the epoch with the lowest val_loss.
+    def __init__(self, seconds):
+        super().__init__()
+        self.seconds, self.best, self.best_loss, self.best_epoch = seconds, None, float('inf'), 0
+    def on_train_begin(self, logs=None):
+        self.t0 = time.time()
+    def on_epoch_end(self, epoch, logs=None):
+        val_loss = (logs or {}).get('val_loss')
+        if val_loss is not None and val_loss < self.best_loss:
+            self.best_loss, self.best, self.best_epoch = val_loss, self.model.get_weights(), epoch + 1
+        if self.seconds and time.time() - self.t0 > self.seconds:
+            print('Time budget of %d s reached after epoch %d; stopping' % (self.seconds, epoch + 1), flush=True)
+            self.model.stop_training = True
+    def on_train_end(self, logs=None):
+        if self.best is not None:
+            self.model.set_weights(self.best)
+            print('Restored weights of epoch %d (val_loss %.4f)' % (self.best_epoch, self.best_loss), flush=True)
+
 # Full shuffle (the default buffer of BATCH_SIZE*4 leaves the class-ordered data in single-class batches)
 train_dataset = train_dataset.shuffle(buffer_size=train_sample_count, reshuffle_each_iteration=True)
 train_dataset = train_dataset.batch(BATCH_SIZE, drop_remainder=False)
@@ -73,9 +96,12 @@ validation_dataset = validation_dataset.batch(BATCH_SIZE, drop_remainder=False)
 
 # model architecture (same as the visual editor: Reshape -> 2 x [Conv1D + MaxPool + Dropout] -> Dense)
 model = Sequential()
-model.add(Reshape((input_length, 1), input_shape=(input_length, )))
-model.add(Cropping1D(cropping=(0, input_length - MFE_FEATURES)))   # keep the MFE features only
-model.add(Reshape((int(MFE_FEATURES / {NUM_FILTERS}), {NUM_FILTERS})))
+if input_length > MFE_FEATURES:
+    model.add(Reshape((input_length, 1), input_shape=(input_length, )))
+    model.add(Cropping1D(cropping=(0, input_length - MFE_FEATURES)))   # keep the MFE features only
+    model.add(Reshape((int(MFE_FEATURES / {NUM_FILTERS}), {NUM_FILTERS})))
+else:
+    model.add(Reshape((int(input_length / {NUM_FILTERS}), {NUM_FILTERS}), input_shape=(input_length, )))
 model.add(Conv1D(16, kernel_size=3, padding='same', activation='relu'))
 model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
 model.add(Dropout(0.25))
@@ -87,6 +113,7 @@ model.add(Dense(classes, name='y_pred', activation='softmax'))
 
 opt = Adam(learning_rate=LEARNING_RATE, beta_1=0.9, beta_2=0.999)
 callbacks.append(BatchLoggerCallback(BATCH_SIZE, train_sample_count, epochs=EPOCHS, ensure_determinism=ENSURE_DETERMINISM))
+callbacks.append(TimeBudget(TIME_BUDGET_S))
 
 model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=["accuracy"])
 model.fit(train_dataset, epochs=EPOCHS, validation_data=validation_dataset, verbose=2, callbacks=callbacks, class_weight=ei_tensorflow.training.get_class_weights(Y_train))
@@ -96,17 +123,19 @@ disable_per_channel_quantization = False
 
 
 def keras_config(num_filters: int, epochs: int, lr: float, augment: bool = False, expert: bool = True,
-                 mfe_features: int = 2440) -> dict:
+                 mfe_features: int = 2440, batch_size: int = 32, time_budget_s: int = 0) -> dict:
     if expert:
         return {
             "mode": "expert",
             # expert mode ignores trainingCycles/learningRate, so they are written into the script itself
             "script": (EXPERT_SCRIPT.replace("{NUM_FILTERS}", str(num_filters))
                        .replace("{MFE_FEATURES}", str(mfe_features))
+                       .replace("{BATCH_SIZE}", str(batch_size))
+                       .replace("{TIME_BUDGET_S}", str(time_budget_s))
                        .replace("{EPOCHS}", str(epochs)).replace("{LEARNING_RATE}", repr(lr))),
             "trainingCycles": epochs,
             "learningRate": lr,
-            "batchSize": 32,
+            "batchSize": batch_size,
             "trainTestSplit": 0.2,
             "autoClassWeights": True,
             "profileInt8": True,
@@ -236,7 +265,7 @@ class Studio:
                 versions[block["type"]] = version
         return versions
 
-    def create_main(self, window_ms: int, stride_ms: int, replace: bool = True) -> None:
+    def create_main(self, window_ms: int, stride_ms: int, replace: bool = True, anomaly: str = "gmm") -> None:
         versions = self.latest_versions()
         dsp = lambda bid, typ, name: {k: v for k, v in {  # noqa: E731
             "id": bid, "type": typ, "name": name, "title": name, "axes": ["audio"], "input": MAIN["input"],
@@ -246,15 +275,21 @@ class Studio:
             "inputBlocks": [{"id": MAIN["input"], "type": "time-series", "name": "Time series", "title": "Audio 16 kHz",
                              "windowSizeMs": window_ms, "windowIncreaseMs": stride_ms, "frequencyHz": 16000,
                              "padZeros": True}],
-            "dspBlocks": [dsp(MAIN["mfe"], "mfe", "MFE"), dsp(MAIN["spectral"], "spectral-analysis", "Spectral features")],
+            # One processing block feeds both learning blocks. Two DSP blocks feeding different learn
+            # blocks overflow the SDK's feature buffer at run time ("Would write outside feature
+            # buffer"); concatenating them into the classifier fixes that but breaks int8 (one input
+            # scale for 0-0.8 MFE values and ~400-valued spectral statistics). The GMM therefore uses
+            # a slice of the MFE features (see --gmm-frames).
+            "dspBlocks": [dsp(MAIN["mfe"], "mfe", "MFE")],
             "learnBlocks": [
-                # Both DSP blocks feed the classifier so the SDK's feature buffer fits both outputs;
-                # the network itself crops to the MFE part (see EXPERT_SCRIPT).
                 {"id": MAIN["classifier"], "type": "keras", "name": "Classifier", "title": "Classification",
-                 "dsp": [MAIN["mfe"], MAIN["spectral"]]},
-                {"id": MAIN["anomaly"], "type": "anomaly-gmm", "name": "Anomaly detection", "title": "Anomaly detection (GMM)",
-                 "dsp": [MAIN["spectral"]]},
-            ],
+                 "dsp": [MAIN["mfe"]]},
+                # GMM by default; --anomaly kmeans switches to the K-means anomaly block.
+                {"id": MAIN["anomaly"], "type": "anomaly" if anomaly == "kmeans" else "anomaly-gmm",
+                 "name": "Anomaly detection",
+                 "title": "Anomaly detection (K-means)" if anomaly == "kmeans" else "Anomaly detection (GMM)",
+                 "dsp": [MAIN["mfe"]]},
+            ][: 1 if anomaly == "none" else 2],
         }
         if replace:
             try:
@@ -302,9 +337,10 @@ class Studio:
         self.wait(job.id, f"features DSP {dsp_id}")
 
     def train_classifier(self, learn_id: int, num_filters: int, epochs: int, lr: float, tag: str,
-                         augment: bool = False) -> dict:
+                         augment: bool = False, batch_size: int = 32, time_budget_s: int = 0) -> dict:
         mfe_features = int(self.http.get(f"dsp/{MAIN['mfe']}/metadata").get("featureCount") or 2440)
-        cfg = keras_config(num_filters, epochs, lr, augment, mfe_features=mfe_features)
+        cfg = keras_config(num_filters, epochs, lr, augment, mfe_features=mfe_features,
+                           batch_size=batch_size, time_budget_s=time_budget_s)
         job_id = self.http.post(f"jobs/train/keras/{learn_id}", cfg)["id"]
         lines = self.wait(job_id, f"train {tag}", timeout=3600)
         RESULTS.mkdir(exist_ok=True)
@@ -328,19 +364,25 @@ class Studio:
                 print(f"  {tag} {variant}: validation accuracy {m.get('accuracy')}, loss {m.get('loss')}")
         return result
 
-    def train_anomaly(self, learn_id: int, clusters: int) -> dict:
+    def train_anomaly(self, learn_id: int, clusters: int, frames: list[int] | None = None, bands: int = 40) -> dict:
+        """Train the GMM. With `frames`, it uses all mel bands of those MFE frames (features are stored
+        frame-major: index = frame * bands + band), which keeps the model small enough for an MCU."""
         cfg = self.http.get(f"training/anomaly/{learn_id}")
-        axes = list(range(len(cfg.get("axes") or [])))
-        if not axes:
-            raise RuntimeError("anomaly block reports no input axes; generate spectral features first")
+        n_axes = len(cfg.get("axes") or [])
+        if not n_axes:
+            raise RuntimeError("anomaly block reports no input axes; generate features first")
+        if frames:
+            axes = [f * bands + b for f in frames for b in range(bands) if f * bands + b < n_axes]
+        else:
+            axes = list(range(n_axes))
         job_id = self.http.post(f"jobs/train/anomaly/{learn_id}", {"axes": axes, "clusterCount": clusters})["id"]
         self.wait(job_id, "train GMM")
         try:
             meta = self.http.get(f"training/anomaly/{learn_id}/gmm/metadata")
         except Exception as exc:  # metadata is optional
             meta = {"error": str(exc)}
-        self.save("train_anomaly", {"axes": len(axes), "clusters": clusters, "metadata": meta})
-        print(f"  GMM trained on {len(axes)} spectral features, {clusters} components")
+        self.save("train_anomaly", {"axes": len(axes), "frames": frames, "clusters": clusters, "metadata": meta})
+        print(f"  GMM trained on {len(axes)} of {n_axes} features (frames {frames or 'all'}), {clusters} components")
         return meta
 
     def test(self, impulse_id: int | None = None, tag: str = "main") -> dict:
@@ -467,7 +509,7 @@ class Studio:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["info", "target", "create", "configure", "features", "train", "test", "all",
-                                        "reference", "perf", "tuner", "testresult", "update-impulse"])
+                                        "reference", "perf", "tuner", "testresult", "update-impulse", "train-gmm"])
     ap.add_argument("--device", default="nano 33", help="text to match a latency device (target command)")
     ap.add_argument("--window-ms", type=int, default=1000)
     ap.add_argument("--stride-ms", type=int, default=500)
@@ -476,7 +518,16 @@ def main() -> None:
     ap.add_argument("--epochs", type=int, default=100)
     ap.add_argument("--lr", type=float, default=0.001,
                     help="0.005 (Studio default) diverged after ~75 epochs on this data; 0.001 trains stably")
-    ap.add_argument("--clusters", type=int, default=5)
+    ap.add_argument("--batch-size", type=int, default=32,
+                    help="per-step cost is mostly overhead, so e.g. 256 (with --lr 0.003) trains ~8x faster")
+    ap.add_argument("--time-budget", type=int, default=0,
+                    help="stop fitting after this many seconds and keep the best epoch (0 = no limit)")
+    ap.add_argument("--clusters", type=int, default=5, help="GMM components (use ~32 clusters for --anomaly kmeans)")
+    ap.add_argument("--anomaly", choices=["gmm", "kmeans", "none"], default="gmm",
+                    help="anomaly learning block type (none: classifier only; EI's GMM/K-means profiling "
+                         "crashes on a slice of MFE features)")
+    ap.add_argument("--gmm-frames", default="15,45",
+                    help="MFE frames (0-60) whose 40 mel bands feed the GMM; 2 frames = 80 features")
     ap.add_argument("--augment", action="store_true", help="enable spectrogram augmentation (noise + masking)")
     args = ap.parse_args()
 
@@ -490,21 +541,24 @@ def main() -> None:
     elif args.command == "target":
         s.set_target(args.device)
     if args.command in ("create", "all"):
-        s.create_main(args.window_ms, args.stride_ms)
+        s.create_main(args.window_ms, args.stride_ms, anomaly=args.anomaly)
     if args.command == "update-impulse":
-        s.create_main(args.window_ms, args.stride_ms, replace=False)
+        s.create_main(args.window_ms, args.stride_ms, replace=False, anomaly=args.anomaly)
     if args.command in ("configure", "all"):
         s.configure_dsp(MAIN["mfe"], mfe)
-        s.configure_dsp(MAIN["spectral"], SPECTRAL_CONFIG)
         if args.autotune:
             s.autotune(MAIN["mfe"])
     if args.command in ("features", "all"):
         s.generate(MAIN["mfe"])
-        s.generate(MAIN["spectral"], importance=True)
+    gmm_frames = [int(f) for f in args.gmm_frames.split(",") if f.strip()]
     if args.command in ("train", "all"):
         s.train_classifier(MAIN["classifier"], int(s.dsp_params(MAIN["mfe"]).get("num_filters", 40)),
-                           args.epochs, args.lr, "main", augment=args.augment)
-        s.train_anomaly(MAIN["anomaly"], args.clusters)
+                           args.epochs, args.lr, "main", augment=args.augment,
+                           batch_size=args.batch_size, time_budget_s=args.time_budget)
+        if args.anomaly != "none":
+            s.train_anomaly(MAIN["anomaly"], args.clusters, gmm_frames)
+    if args.command == "train-gmm":
+        s.train_anomaly(MAIN["anomaly"], args.clusters, gmm_frames)
     if args.command in ("test", "all"):
         s.test()
     if args.command == "testresult":

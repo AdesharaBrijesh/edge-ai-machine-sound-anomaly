@@ -23,3 +23,7 @@ docs/report/team.json
 docs/report/*.docx
 docs/report/*.pdf
 docs/slides/
+
+# university template and logo (not ours to publish)
+Report Template.docx
+docs/report/template_assets/
