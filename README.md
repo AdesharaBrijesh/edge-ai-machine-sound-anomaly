@@ -95,7 +95,7 @@ Keys: `1`–`0` play clips, `M` microphone, `Esc` stop.
 
 ## Results
 
-Final model (v2, Edge Impulse project 1165553), int8. The test set (141 held-out clips, 2,679
+Final model (v2, public Edge Impulse project [1165553](https://studio.edgeimpulse.com/public/1165553/live)), int8. The test set (141 held-out clips, 2,679
 one-second windows) is scored with the exported C++ library itself (`deployment/cpp-linux/eval.sh`
 + `scripts/eval_cpp_results.py`), because the free plan's compute was used up by training.
 

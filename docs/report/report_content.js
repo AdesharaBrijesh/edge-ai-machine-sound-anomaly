@@ -138,7 +138,7 @@ function body(team) {
   const valAcc8 = train('int8', 'accuracy');
   const valAcc32 = train('float32', 'accuracy');
   const testA = testAcc();
-  const eiLink = TEAM.edge_impulse_url || 'https://studio.edgeimpulse.com/public/1165553/latest';
+  const eiLink = TEAM.edge_impulse_url || 'https://studio.edgeimpulse.com/public/1165553/live';
   const ghLink = 'https://github.com/AdesharaBrijesh/edge-ai-machine-sound-anomaly';
   const v1Test = (() => {
     const good = D('test_v1.accuracy.totalSummary.good');
