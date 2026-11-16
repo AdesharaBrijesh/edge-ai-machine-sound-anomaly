@@ -6,7 +6,7 @@
 2. Turn **Audio enhancements off** for the microphone: Settings → System → Sound → Microphone Array → Audio enhancements: Off.
    Without this, Windows cancels steady machine noise and live-mic mode hears nothing.
 3. Start the dashboard: `python demo/serve.py`, then open the address it prints (**http://localhost:8000**, or 8001 if 8000 is taken) in Chrome or Edge and allow microphone access.
-4. Open the Edge Impulse project (Impulse design and Model testing pages) in a second tab.
+4. Open the Edge Impulse project (Impulse design and Classifier pages) in a second browser tab. Set browser zoom to 100 % (Ctrl+0).
 5. Put one normal and one abnormal pump clip on your phone, ready to play
    (`demo/clips/normal_1_id00.wav`, `demo/clips/abnormal_1_id00.wav`).
 6. **Backup:** record a 1-minute screen video of a successful run (Win + Alt + R starts and stops recording).
@@ -29,6 +29,7 @@
 
 | Problem | Fix |
 |---|---|
-| Live mode stays on BACKGROUND or does not react | Audio enhancements are still on, or the phone is too far away: hold it about 10 cm from the laptop's microphone (top edge of the screen). Switch to replay mode. |
+| Live mode stays on BACKGROUND or does not react | Audio enhancements are still on, or the phone is too far away: hold it about 10 cm from the laptop's microphone (top edge of the screen). Switch to **Replay clip** in the 01 Monitor tab. |
 | The page shows "Model missing" | Run `python scripts/ei_pipeline.py --skip-upload --skip-retrain --targets wasm`, then refresh. |
 | The browser fails completely | Edge Impulse dashboard → *Launch in browser* (Edge Impulse's own live classification), or play the backup video. |
+| Charts or the page look tiny/huge | Reset browser zoom with Ctrl+0, then Ctrl+F5. |
