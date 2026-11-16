@@ -3,7 +3,9 @@
 // exactly once (the shipped version skips it if the runtime finished loading before init() was
 // called, and without it the classifier's buffers are not set up: "Would write outside feature
 // buffer"), and results only carry what an audio classifier needs.
-let classifierInitialized = false;
+// The runtime may already be up when this file loads (fast browsers compile the .wasm before the
+// next <script> arrives); onRuntimeInitialized has then fired already, so check Module.calledRun too.
+let classifierInitialized = Boolean(Module.calledRun);
 let moduleInitCalled = false;
 Module.onRuntimeInitialized = function () {
   classifierInitialized = true;
@@ -18,7 +20,8 @@ function initModuleOnce() {
 
 class EdgeImpulseClassifier {
   init() {
-    if (classifierInitialized) {
+    if (classifierInitialized || Module.calledRun) {
+      classifierInitialized = true;
       initModuleOnce();
       return Promise.resolve();
     }
