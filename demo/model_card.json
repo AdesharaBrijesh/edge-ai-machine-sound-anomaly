@@ -1,0 +1,76 @@
+{
+  "test": {
+    "v2": {
+      "window_accuracy": 0.7872340425531915,
+      "clip_accuracy": 0.7872340425531915,
+      "mic_clip_accuracy": 0.8095238095238095,
+      "recall": {
+        "abnormal": 0.8141945773524721,
+        "background": 1.0,
+        "normal": 0.7312599681020734
+      },
+      "confusion": {
+        "abnormal": {
+          "abnormal": 1021,
+          "background": 0,
+          "normal": 233
+        },
+        "background": {
+          "abnormal": 0,
+          "background": 171,
+          "normal": 0
+        },
+        "normal": {
+          "abnormal": 337,
+          "background": 0,
+          "normal": 917
+        }
+      }
+    },
+    "v1": {
+      "window_accuracy": 0.8372527062336693,
+      "clip_accuracy": 0.8368794326241135,
+      "mic_clip_accuracy": 0.9047619047619048,
+      "recall": {
+        "abnormal": 0.7886762360446571,
+        "background": 1.0,
+        "normal": 0.8636363636363636
+      },
+      "confusion": {
+        "abnormal": {
+          "abnormal": 989,
+          "background": 0,
+          "normal": 265
+        },
+        "background": {
+          "abnormal": 0,
+          "background": 171,
+          "normal": 0
+        },
+        "normal": {
+          "abnormal": 171,
+          "background": 0,
+          "normal": 1083
+        }
+      }
+    }
+  },
+  "train": {
+    "val_int8": 0.8188679245283019,
+    "val_float32": 0.8363636363636363
+  },
+  "device": {
+    "int8_ms": 7,
+    "float32_ms": 150,
+    "ram_kb": 7.9,
+    "flash_kb": 34.6
+  },
+  "data": {
+    "clips": 908,
+    "pump_units": 4,
+    "mic_clips": 108,
+    "augmented": 200,
+    "test_clips": 141,
+    "train_windows": 11660
+  }
+}

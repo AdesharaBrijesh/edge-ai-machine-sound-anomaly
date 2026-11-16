@@ -5,7 +5,7 @@
 1. Plug in the charger; set the speaker volume to about 80%.
 2. Turn **Audio enhancements off** for the microphone: Settings → System → Sound → Microphone Array → Audio enhancements: Off.
    Without this, Windows cancels steady machine noise and live-mic mode hears nothing.
-3. Start the dashboard: `python demo/serve.py`, then open **http://localhost:8000** in Chrome and allow microphone access.
+3. Start the dashboard: `python demo/serve.py`, then open the address it prints (**http://localhost:8000**, or 8001 if 8000 is taken) in Chrome or Edge and allow microphone access.
 4. Open the Edge Impulse project (Impulse design and Model testing pages) in a second tab.
 5. Put one normal and one abnormal pump clip on your phone, ready to play
    (`demo/clips/normal_1_id00.wav`, `demo/clips/abnormal_1_id00.wav`).
@@ -15,14 +15,15 @@
 
 | Time | Say | Do |
 |---|---|---|
-| 0:00 | "Pumps fail gradually, and the sound changes before they break. We put a tiny neural network next to the machine that listens and raises an alarm, with no cloud needed." | Show the title slide |
-| 0:20 | "We trained it in Edge Impulse on recordings of real factory pumps (DCASE 2020 / MIMII), plus our own laptop-microphone recordings. The impulse is a 1-second window → MFE features → 1D CNN, quantised to int8." | Edge Impulse tab: Impulse design |
-| 0:45 | "On clips it never saw, it reaches **{test accuracy}**, quantised to int8. On an Arduino Nano 33 BLE Sense it would need about **{latency} ms** and **{RAM} KB** of RAM." | Model testing page |
-| 1:05 | "Here it runs on this laptop as WebAssembly: same model, no internet." | Dashboard → Replay → a *normal* clip → shows NORMAL |
-| 1:25 | "Now a faulty pump." | Replay an *abnormal* clip → shows ABNORMAL (red timeline) |
-| 1:45 | "And live, through the microphone." | Live microphone → play the abnormal clip from the phone near the laptop |
-| 2:05 | "Its limit: a sound it was never trained on is forced into a known class. That is why the next step is an anomaly block." | Replay the *white noise* clip → shows ABNORMAL |
-| 2:20 | "The same model also compiles to C++ for microcontrollers. GitHub Actions retrains and rebuilds it every two days." | Show the C++ terminal output (report Section 5.2) and the Actions tab |
+| 0:00 | "Pumps fail gradually, and the sound changes before they break. We put a tiny neural network next to the machine that listens and raises an alarm, with no cloud." | Title slide |
+| 0:20 | "It was trained in Edge Impulse on real factory pump recordings plus our own microphone recordings: 1-second windows, MFE features, a 1D CNN quantised to int8. This page runs that exact model in the browser." | Dashboard, **01 Monitor** |
+| 0:40 | "A healthy pump." | Press **1** (normal clip 1): NORMAL, machine state HEALTHY |
+| 0:55 | "Now a faulty one. Notice the alarm logic: one odd window never raises an alarm, six of the last eight do, and every state change is logged like a maintenance record." | Press **6** (abnormal clip 1): ABNORMAL, machine state ALARM, event log entry |
+| 1:15 | "Live, through the microphone." | Press **M**, play the abnormal clip from the phone near the laptop; then stay quiet: NO MACHINE / BACKGROUND |
+| 1:35 | "Which part of the sound does it use? We delete one frequency band at a time and re-run the model: 152 extra inferences." | **02 Analyze**, abnormal clip 1: the 300–600 Hz bar dominates |
+| 1:55 | "Factories are loud. Here are all held-out clips with noise mixed in at seven levels, about 1,300 inferences in ten seconds." | **03 Stress test** → Run: within 5 points of clean down to 0 dB; errors only ever go to *abnormal* (false alarms, never missed faults) |
+| 2:20 | "Everything here is the deployed model: 5,043 parameters, 7 ms on an Arduino, under a millisecond in the browser. The same library compiles to C++ for microcontrollers." | **04 Model card** → Run benchmark; mention the C++ output on the deploy slide |
+| 2:40 | "Its limit: a sound it was never trained on is forced into a class; that's why the next step is an anomaly block." | Optional: Monitor → *white noise* clip shows ABNORMAL |
 
 ## If something goes wrong
 

@@ -1878,7 +1878,7 @@
     "meanLatencyMs": 0,
     "meanAnomalyKnown": 0,
     "meanAnomalyUnknown": 0,
-    "threshold": 5,
+    "threshold": null,
     "clips": [
       {
         "file": "normal_1_id00.wav",

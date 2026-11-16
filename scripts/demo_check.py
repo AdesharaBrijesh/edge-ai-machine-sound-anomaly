@@ -77,9 +77,15 @@ def main() -> None:
                   f"{row['windowAccuracy']:.0%} of windows, anomaly {row['meanAnomaly']:.2f}")
 
         FIGS.mkdir(parents=True, exist_ok=True)
-        chrome(["--window-size=1280,1000", f"--screenshot={FIGS / 'dashboard.png'}", base + f"?offline={args.clip}"])
-        chrome(["--window-size=1280,1500", f"--screenshot={FIGS / 'dashboard_eval.png'}", base + "?evaluate=1"])
-        for name in ("dashboard.png", "dashboard_eval.png"):
+        shots = {
+            "dashboard.png": ("1440,1130", "?simulate=6"),               # 01 Monitor, abnormal clip 1
+            "dashboard_analyze.png": ("1440,1170", f"?offline={args.clip}"),  # 02 Analyze + occlusion test
+            "dashboard_stress.png": ("1440,1000", "?tab=stress&run=1"),   # 03 Noise stress test
+            "dashboard_card.png": ("1440,1300", "?tab=card"),             # 04 Model card
+        }
+        for name, (size, query) in shots.items():
+            chrome([f"--window-size={size}", f"--screenshot={FIGS / name}", base + query])
+        for name in shots:
             print(f"  screenshot {'ok' if (FIGS / name).exists() else 'MISSING'}: docs/report/figures/{name}")
     finally:
         server.shutdown()

@@ -5,77 +5,239 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pump Sound Monitor</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ffd21f'/%3E%3Cpath d='M3 16h5l3-8 5 16 4-12 3 4h6' stroke='%23101418' stroke-width='3' fill='none'/%3E%3C/svg%3E">
 </head>
 <body>
-  <header class="top">
-    <div>
-      <h1>Pump Sound Monitor</h1>
-      <p class="sub">Edge AI anomaly detection &middot; the Edge Impulse model runs inside this browser (WebAssembly), no cloud</p>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" fill="#101418"/><path d="M3 16h5l3-8 5 16 4-12 3 4h6" stroke="#ffd21f" stroke-width="3" fill="none"/></svg>
+      <div>
+        <h1>Pump Sound Monitor</h1>
+        <p>Edge AI condition monitoring · the Edge Impulse model runs inside this browser, no cloud</p>
+      </div>
     </div>
-    <div id="model-status" class="pill pill-wait">Loading model&hellip;</div>
+    <div class="top-right">
+      <span class="spec" id="spec-line">1 s window · MFE 61×40 · 1D CNN · int8</span>
+      <span id="model-status" class="status status-wait">Loading model…</span>
+    </div>
   </header>
 
-  <main class="grid">
-    <section class="card controls">
-      <div class="tabs" role="tablist">
-        <button class="tab active" data-mode="replay" role="tab">Replay test clip</button>
-        <button class="tab" data-mode="live" role="tab">Live microphone</button>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="monitor" role="tab"><b>01</b> Monitor</button>
+    <button class="tab" data-tab="analyze" role="tab"><b>02</b> Analyze a clip</button>
+    <button class="tab" data-tab="stress" role="tab"><b>03</b> Noise stress test</button>
+    <button class="tab" data-tab="card" role="tab"><b>04</b> Model card</button>
+    <span class="keys"><kbd>1</kbd>–<kbd>0</kbd> play clip <kbd>M</kbd> microphone <kbd>Esc</kbd> stop</span>
+  </nav>
+
+  <!-- ===================================================== 01 MONITOR -->
+  <main id="tab-monitor" class="page">
+    <section class="panel source">
+      <div class="panel-head"><h2>Input</h2></div>
+      <div class="seg" id="source-seg">
+        <button class="active" data-src="replay">Replay clip</button>
+        <button data-src="live">Live microphone</button>
+        <button data-src="file">Your file</button>
       </div>
 
-      <div id="pane-replay" class="pane">
-        <p class="hint">Held-out clips the model never saw. Audio plays through the speakers while the
-          same samples are classified window by window.</p>
+      <div id="src-replay">
+        <p class="hint">Held-out recordings the model never saw. The audio plays through the speakers while the same samples are classified every 0.25 s.</p>
         <div id="clip-list" class="clip-list"></div>
+        <div class="noise-box">
+          <div class="noise-row">
+            <label for="snr-sel">Add noise</label>
+            <select id="snr-sel">
+              <option value="off">off</option><option value="20">20 dB SNR</option><option value="10">10 dB SNR</option>
+              <option value="5">5 dB SNR</option><option value="0">0 dB SNR</option><option value="-5">−5 dB SNR</option>
+            </select>
+            <select id="noise-sel"><option value="white">white noise</option><option value="room">room recording</option></select>
+          </div>
+          <p class="hint small">Mixes noise into the replayed clip, so you can hear and see how the classifier degrades.</p>
+        </div>
       </div>
 
-      <div id="pane-live" class="pane hidden">
-        <p class="hint">Hold a phone playing pump sounds near the laptop, or stay quiet / talk to see
-          the background class.</p>
-        <button id="mic-btn" class="btn primary">Start microphone</button>
-        <div class="meter"><div id="level" class="meter-fill"></div></div>
+      <div id="src-live" class="hidden">
+        <p class="hint">Classifies the laptop microphone every 0.25 s. Play a pump clip from a phone held near the laptop, or stay quiet for “background”.</p>
+        <button id="mic-btn" class="btn btn-big">Start microphone</button>
+        <div class="meter"><div id="level"></div></div>
+        <p class="hint small">Uses the raw microphone path (echo cancellation, noise suppression and auto gain are switched off), like a MEMS microphone on a microcontroller.</p>
       </div>
 
-      <div class="threshold">
-        <label for="thr">Unknown-sound threshold <span id="thr-val"></span></label>
-        <input id="thr" type="range" min="0" max="5" step="0.1">
+      <div id="src-file" class="hidden">
+        <label class="drop" id="drop">
+          <input type="file" id="file-in" accept="audio/*,.wav">
+          <b>Drop an audio file here</b>
+          <span>or click to choose · any format the browser can decode · resampled to 16 kHz</span>
+        </label>
+        <div id="file-list" class="clip-list"></div>
       </div>
-      <dl id="model-info" class="model-info"></dl>
     </section>
 
-    <section class="card verdict-card">
-      <div id="verdict" class="verdict v-idle">IDLE</div>
+    <section class="panel decision">
+      <div class="verdict-row">
+        <div id="verdict" class="verdict v-idle">
+          <span class="v-label">Current window</span>
+          <span class="v-text" id="verdict-text">IDLE</span>
+          <span class="v-sub" id="verdict-sub">choose an input</span>
+        </div>
+        <div id="machine" class="machine m-idle">
+          <span class="v-label">Machine state</span>
+          <span class="m-text" id="machine-text">NO DATA</span>
+          <span class="v-sub" id="machine-sub">ALARM = 6 of the last 8 windows abnormal</span>
+        </div>
+      </div>
       <div id="truth" class="truth"></div>
       <div id="bars" class="bars"></div>
-      <div class="anomaly">
-        <div class="anomaly-head"><span>Anomaly score</span><span id="anom-val">&ndash;</span></div>
-        <div class="gauge"><div id="anom-fill" class="gauge-fill"></div><div id="anom-thr" class="gauge-thr"></div></div>
+      <div class="tiles">
+        <div class="tile"><span id="t-lat">–</span><small>ms per inference (this browser)</small></div>
+        <div class="tile"><span id="t-count">0</span><small>inferences</small></div>
+        <div class="tile"><span id="t-agree">–</span><small>agree with true label</small></div>
+        <div class="tile"><span id="t-uplink">–</span><small>sent upstream vs audio heard</small></div>
       </div>
-      <div class="stats">
-        <div><span id="lat">&ndash;</span><small>ms / inference</small></div>
-        <div><span id="count">0</span><small>windows</small></div>
-        <div><span id="agree">&ndash;</span><small>correct (replay)</small></div>
+      <div class="panel-head chart-head">
+        <h2>Class probability over time</h2>
+        <span class="legend"><i class="sw sw-normal"></i>normal <i class="sw sw-abnormal"></i>abnormal <i class="sw sw-background"></i>background</span>
       </div>
+      <canvas id="prob-chart" height="170"></canvas>
+      <div class="strip-head"><span>Decision per inference (3-window average, newest on the right)</span></div>
+      <div id="strip" class="strip"></div>
     </section>
 
-    <section id="eval" class="card wide hidden">
-      <h2>Held-out clip evaluation <small>every clip classified in this browser, one inference per 0.25 s</small></h2>
-      <div id="eval-summary" class="eval-summary"></div>
-      <table id="eval-table" class="eval-table"></table>
-      <pre id="eval-json" class="hidden"></pre>
+
+    <section class="panel half">
+      <div class="panel-head"><h2>What the network sees</h2><span class="muted">MFE features of the latest 1 s window · 61 frames × 40 mel bands</span></div>
+      <canvas id="mfe-live" height="170"></canvas>
+      <div class="axis-note"><span>0 s</span><span>low → high frequency (bottom → top)</span><span>1 s</span></div>
     </section>
 
-    <section class="card wide">
-      <h2>Timeline <small>one block per inference (every 0.25 s on the latest 1 s window), newest on the right</small></h2>
-      <div id="timeline" class="timeline"></div>
-      <h2>Spectrogram <small>0&ndash;8 kHz</small></h2>
-      <canvas id="spec" class="spec" width="900" height="160"></canvas>
+    <section class="panel half">
+      <div class="panel-head"><h2>Event log</h2><button id="csv-btn" class="btn btn-small">Export session CSV</button></div>
+      <ol id="events" class="events"><li class="muted">State changes appear here, like a maintenance log.</li></ol>
     </section>
   </main>
 
-  <footer class="foot">
-    Data: DCASE 2020 Task 2 / MIMII pump recordings (CC BY-NC-SA 4.0). Model: Edge Impulse, MFE + 1D CNN, int8 (WebAssembly build).
+  <!-- ===================================================== 02 ANALYZE -->
+  <main id="tab-analyze" class="page hidden">
+    <section class="panel wide toolbar">
+      <label for="an-sel">Clip</label>
+      <select id="an-sel"></select>
+      <button id="an-run" class="btn">Analyze</button>
+      <button id="an-play" class="btn btn-ghost">Play</button>
+      <span class="muted" id="an-status">Every 0.5 s window of the clip is classified, then the clip is decided by majority vote.</span>
+    </section>
+
+    <section class="panel third">
+      <div id="an-verdict" class="verdict v-idle">
+        <span class="v-label">Clip decision (majority vote)</span>
+        <span class="v-text" id="an-verdict-text">–</span>
+        <span class="v-sub" id="an-verdict-sub"></span>
+      </div>
+      <div id="an-votes" class="votes"></div>
+    </section>
+
+    <section class="panel two-thirds">
+      <div class="panel-head"><h2>Probability per window</h2><span class="muted">hover a point to see its window in the features below</span></div>
+      <canvas id="an-chart" height="200"></canvas>
+    </section>
+
+    <section class="panel wide">
+      <div class="panel-head"><h2>MFE features of the whole clip</h2><span class="muted">hover the chart above: the blue frame is the 1 s slice the network saw</span></div>
+      <canvas id="an-mfe" height="160"></canvas>
+      <div class="axis-note"><span>0 s</span><span id="an-mfe-note"></span><span id="an-dur">10 s</span></div>
+    </section>
+
+    <section class="panel wide">
+      <div class="panel-head"><h2>Which frequencies drive the decision?</h2><span class="muted">occlusion test: remove one band, re-run the model, measure the change</span></div>
+      <div class="split">
+        <canvas id="an-occ" height="250"></canvas>
+        <div class="explain">
+          <p>For every window, each frequency band is deleted from the audio (FFT → zero the band → inverse FFT) and the model is run again: <b id="occ-count">–</b> extra inferences.</p>
+          <p>A long bar means that removing the band costs the model confidence in its answer, so the model relies on that band. A bar to the left means the band was pulling it towards another class.</p>
+          <p id="occ-take" class="takeaway"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================================================== 03 STRESS -->
+  <main id="tab-stress" class="page hidden">
+    <section class="panel wide toolbar">
+      <span>Noise</span>
+      <div class="seg seg-inline" id="st-noise">
+        <button class="active" data-noise="white">White noise</button>
+        <button data-noise="room">Room recording</button>
+      </div>
+      <button id="st-run" class="btn">Run stress test</button>
+      <div class="progress"><div id="st-prog"></div></div>
+      <span class="muted" id="st-status">All 10 held-out pump clips × 7 noise levels, classified in this browser.</span>
+    </section>
+
+    <section class="panel two-thirds">
+      <div class="panel-head"><h2>Accuracy as noise increases</h2><span class="muted">shaded: the SNR range used for noise augmentation in training (5–20 dB)</span></div>
+      <canvas id="st-chart" height="280"></canvas>
+    </section>
+
+    <section class="panel third">
+      <div class="panel-head"><h2>Why this test</h2></div>
+      <p>A factory is loud. The training set mixed room noise into pump clips at 5–20 dB signal-to-noise ratio so the classifier would keep working when people talk or a fan runs.</p>
+      <p>This test measures that claim directly: the same clips, with noise added at a fixed SNR, through the same model.</p>
+      <p id="st-take" class="takeaway"></p>
+    </section>
+
+    <section class="panel wide">
+      <table class="data" id="st-table">
+        <thead><tr><th>SNR</th><th class="num">Windows correct</th><th class="num">Clips correct</th><th class="num">Normal recall</th><th class="num">Abnormal recall</th><th>Most common wrong answer</th></tr></thead>
+        <tbody><tr><td colspan="6" class="muted">Run the test to fill this table.</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- ===================================================== 04 MODEL CARD -->
+  <main id="tab-card" class="page hidden">
+    <section class="panel wide">
+      <div class="panel-head"><h2>Signal path</h2><span class="muted">every number is the real shape inside the deployed model</span></div>
+      <div class="pipeline" id="pipeline"></div>
+    </section>
+
+    <section class="panel half">
+      <div class="panel-head"><h2>Test set, 141 held-out clips</h2><span class="muted">scored with the deployed C++ library</span></div>
+      <div id="card-test"></div>
+    </section>
+
+    <section class="panel half">
+      <div class="panel-head"><h2>Confusion matrix (1 s windows)</h2><span class="muted">rows: true class · columns: predicted</span></div>
+      <div id="card-cm"></div>
+    </section>
+
+    <section class="panel half">
+      <div class="panel-head"><h2>On the microcontroller</h2><span class="muted">Edge Impulse estimates, Arduino Nano 33 BLE Sense (Cortex-M4F, 64 MHz)</span></div>
+      <div id="card-device"></div>
+    </section>
+
+    <section class="panel half">
+      <div class="panel-head"><h2>Benchmark in this browser</h2><button id="bench-btn" class="btn btn-small">Run benchmark</button></div>
+      <div id="card-bench"><p class="muted">Times 300 inferences of the WebAssembly model on this machine and runs the 10 held-out demo clips.</p></div>
+    </section>
+
+    <section class="panel wide">
+      <div class="panel-head"><h2>Data and training</h2></div>
+      <div id="card-data" class="facts"></div>
+    </section>
+
+    <section id="eval" class="panel wide hidden">
+      <div class="panel-head"><h2>Held-out demo clips, classified in this browser</h2></div>
+      <p id="eval-summary"></p>
+      <table class="data" id="eval-table"></table>
+      <pre id="eval-json" class="hidden"></pre>
+    </section>
+  </main>
+
+  <footer>
+    Data: DCASE 2020 Task 2 / MIMII pump recordings (CC BY-NC-SA 4.0). Model: Edge Impulse impulse (MFE + 1D CNN, int8) compiled to WebAssembly. Edge AI course project, SITAICS, Rashtriya Raksha University.
   </footer>
 
+  <script src="dsp.js"></script>
+  <script src="charts.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

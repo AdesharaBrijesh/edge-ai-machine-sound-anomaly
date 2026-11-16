@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const R = require('./build_report.js');
 const {
-  D, pct, fmt, first, cite, p, bullets, numbered, pageBreak, spacer, chapter, appendix, section,
+  D, pct, fmt, first, cite, p, bullets, numbered, pageBreak, spacer, chapter, appendix, section, subsection,
   frontTitle, code, table, fig, shot, ref, TEAM, TEXT_W, FONT, FRONT_FONT, LINE,
 } = R;
 const {
@@ -305,10 +305,30 @@ function body(team) {
     p(['The final C++ library (EON compiler, int8) was built with Edge Impulse’s example-standalone-inferencing-linux project', cite(6), ' inside WSL2 Ubuntu on the laptop, exactly as in the guide (deployment/cpp-linux/build.sh), and run on one window of raw features from a held-out clip of each class:']),
     ...code(['$ APP_CUSTOM=1 make -j$(nproc)', '$ for f in features-{abnormal,normal,background}.txt; do ./build/custom $f; done', ...((cpp().output_lines) || ['(output inserted after the build)'])]),
     p(`On the laptop CPU one window takes about ${fmt(ev('v2', 'mean_dsp_ms'), 1, ' ms')} of feature extraction and ${fmt(ev('v2', 'mean_classification_ms'), 1, ' ms')} of inference. The same library, with the batch front end of ${ref('sec:testing')}, scored all ${ev('v2', 'overall.windows') || 2679} test windows.`),
-    section('WebAssembly live dashboard'),
-    p('The same impulse, built as WebAssembly, runs inside a browser page served from the laptop (demo/). In replay mode it plays a held-out clip through the speakers while classifying the exact same samples every 250 ms; in live mode it classifies the microphone stream. The page shows class probabilities, the inference time, a timeline and a live spectrogram (it also shows an anomaly gauge when the model has an anomaly block).'),
-    ...fig('dashboard.png', 'Live dashboard classifying a held-out abnormal clip in the browser', 'fig:dashboard', 460),
-    p(`An evaluation mode (demo/?evaluate=1, run headless by scripts/demo_check.py) classifies all ten demo clips, which were never uploaded to Edge Impulse, inside the browser: ${pct(D('demo_eval.windowAccuracy'))} of windows and ${pct(D('demo_eval.clipAccuracy'))} of clips are correct. All five abnormal clips are recognised; three of the five normal clips are mostly labelled abnormal, the same normal-to-abnormal confusion as in ${ref('sec:testing')}.`),
+    section('WebAssembly live dashboard', 'sec:dashboard'),
+    p('The same impulse, built as WebAssembly, runs inside a browser page served from the laptop (demo/), with no network connection needed. The page is organised like the screen of a condition-monitoring instrument, in four tabs. All signal processing beyond the model itself (FFT, MFE features for display, band removal, noise mixing) is implemented in plain JavaScript in demo/dsp.js.'),
+    subsection('Monitor'),
+    p(`The input is a held-out clip played through the speakers, the live microphone, or any audio file dropped onto the page. Every 250 ms the latest 1 s window is classified; the current-window verdict averages the last three inferences and reports “uncertain” below 0.6 confidence. On top of the classifier sits the logic a real monitor needs: a machine-state indicator with hysteresis (ALARM when at least 6 of the last 8 windows are abnormal, cleared only when at most 2 are; NO MACHINE when background dominates), so one odd window never raises an alarm. State changes are written to an event log that can be exported as CSV, and a counter shows the edge-computing argument directly: the device hears 32 KB of audio per second but would send only a 16-byte message per state change. The panel “What the network sees” draws the 61 × 40 MFE features of the current window (${ref('fig:dashboard')}).`),
+    ...fig('dashboard.png', 'Monitor tab: a held-out abnormal clip drives the machine state to ALARM; probabilities over time, decision strip, MFE features of the current window and event log', 'fig:dashboard', 520),
+    subsection('Analyze a clip: which frequencies matter'),
+    p(`For a selected clip the page classifies every 0.5 s window, decides the clip by majority vote, and runs an occlusion test: each of eight frequency bands is deleted from every window (FFT, zero the band, inverse FFT) and the model is run again, 152 extra inferences for a 10 s clip. The drop in the predicted class’s probability shows which bands the model relies on. For abnormal clip 1 of pump 00, removing 300–600 Hz lowers p(abnormal) by 0.33 on average and removing 1–1.5 kHz by 0.09, while the bands above 4 kHz have no effect (${ref('fig:analyze')}). The model has therefore learned the low-frequency signature of the fault rather than broadband noise, which also explains why playback through laptop speakers, which lose 15–20 dB below 300 Hz (${ref('fig:micpath')}), makes live classification harder.`),
+    ...fig('dashboard_analyze.png', 'Analyze tab: majority vote over 19 windows, probability per window, MFE features of the whole clip and the frequency-band occlusion test', 'fig:analyze', 520),
+    subsection('Noise stress test'),
+    p(`The training set was augmented with room noise at 5–20 dB SNR. The stress test checks what that bought: the ten held-out demonstration clips are mixed with white noise or with a recording of the room at seven levels from clean to −5 dB SNR and classified in the browser (1,330 inferences per run, ${ref('tab:stress')}).`),
+    ...table('Noise stress test in the browser (10 held-out clips, 0.5 s stride; window accuracy / normal recall; abnormal recall is 100 % at every level)', ['SNR', 'White noise', 'Room recording'], [
+      ['clean', '77.4 % / 55 %', '77.4 % / 55 %'],
+      ['30 dB', '82.1 % / 64 %', '75.8 % / 52 %'],
+      ['20 dB', '82.6 % / 65 %', '73.2 % / 46 %'],
+      ['10 dB', '75.8 % / 52 %', '72.1 % / 44 %'],
+      ['5 dB', '73.2 % / 46 %', '72.1 % / 44 %'],
+      ['0 dB', '72.6 % / 45 %', '70.5 % / 41 %'],
+      ['−5 dB', '60.0 % / 20 %', '68.9 % / 38 %'],
+    ], [20, 40, 40], 'tab:stress'),
+    p('Accuracy stays within five points of the clean value down to 0 dB of white noise and degrades slowly with room noise; light white noise even raises it, consistent with the noise-augmented training data. The errors always go one way: noise makes normal pumps sound abnormal, while every abnormal window is still recognised. For a maintenance monitor this is the safe failure mode, more false alarms rather than missed faults, and the hysteresis of the machine-state logic absorbs isolated false alarms.'),
+    ...fig('dashboard_stress.png', 'Noise stress test tab: accuracy as white noise increases; the shaded band is the SNR range used for augmentation in training', 'fig:stress', 520),
+    subsection('Model card and in-browser benchmark'),
+    p(`The last tab summarises the deployed model: the signal path with the real tensor shapes (16,000 samples → 61 × 40 MFE → Conv1D 61 × 16 → 31 × 16 → Conv1D 31 × 32 → 16 × 32 → 3 outputs, 5,043 parameters), the C++ test results and confusion matrix of ${ref('sec:testing')}, the on-device estimates, and a benchmark that times 300 inferences of the WebAssembly model on the viewing machine and re-classifies the ten demonstration clips, which were never uploaded to Edge Impulse: ${pct(D('demo_eval.windowAccuracy'))} of windows and ${pct(D('demo_eval.clipAccuracy'))} of clips are correct, with the same normal-to-abnormal confusion as in ${ref('sec:testing')}.`),
+
     section('Automation'),
     p('The guide automates two pipelines; both are reproduced here:'),
     ...bullets([
