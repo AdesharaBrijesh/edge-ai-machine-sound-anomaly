@@ -4,10 +4,12 @@
 Same idea as the server.py in Edge Impulse's WebAssembly browser guide: make sure .wasm files
 are sent as application/wasm, and disable caching so a rebuilt model is picked up.
 
-  python demo/serve.py            # then open http://localhost:8000
+  python demo/serve.py            # then open the printed address (http://localhost:8000 if free)
+  python demo/serve.py 9000       # choose a port
 """
 import http.server
 import socketserver
+import sys
 from pathlib import Path
 
 PORT = 8000
@@ -26,8 +28,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
+def open_server(first_port: int) -> socketserver.TCPServer:
+    # if the port is taken (another app, or reserved by Windows), try the next ones
+    for port in range(first_port, first_port + 20):
+        try:
+            return socketserver.TCPServer(("127.0.0.1", port), Handler)
+        except OSError:
+            print(f"port {port} is busy, trying {port + 1}")
+    sys.exit(f"no free port between {first_port} and {first_port + 19}; pass one: python demo/serve.py 9000")
+
+
 if __name__ == "__main__":
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("127.0.0.1", PORT), Handler) as httpd:
-        print(f"Live demo: http://localhost:{PORT}  (Ctrl+C to stop)")
+    with open_server(int(sys.argv[1]) if len(sys.argv) > 1 else PORT) as httpd:
+        print(f"Live demo: http://localhost:{httpd.server_address[1]}  (Ctrl+C to stop)")
         httpd.serve_forever()
