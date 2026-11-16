@@ -22,7 +22,7 @@ const DATA = fs.existsSync(path.join(HERE, 'report_data.json'))
   ? JSON.parse(fs.readFileSync(path.join(HERE, 'report_data.json'), 'utf8')) : {};
 const TEAM = fs.existsSync(path.join(HERE, 'team.json'))
   ? JSON.parse(fs.readFileSync(path.join(HERE, 'team.json'), 'utf8')) : {};
-const OUT = path.join(HERE, 'Pump_Sound_Anomaly_Detection_Report.docx');
+const OUT = process.env.REPORT_OUT || path.join(HERE, 'Pump_Sound_Anomaly_Detection_Report.docx');
 
 // ---------- page format (RRU guidelines) ----------
 const PAGE = { width: 11906, height: 16838 };                      // A4
@@ -183,7 +183,11 @@ function figure(file, captionText, label, maxWidthPx = MAX_IMG_PX, placeholderHi
   return [body, figCaption(captionText, label)];
 }
 const fig = (name, cap, label, w) => figure(path.join(HERE, 'figures', name), cap, label, w);
-const shot = (name, cap, label, hint) => figure(path.join(ROOT, 'docs', 'screenshots', name), cap, label, MAX_IMG_PX, hint);
+// Studio screenshots are optional: a missing file is simply left out of the report
+const shot = (name, cap, label, hint) => {
+  const file = path.join(ROOT, 'docs', 'screenshots', name);
+  return fs.existsSync(file) ? figure(file, cap, label, MAX_IMG_PX, hint) : [];
+};
 
 module.exports = {
   D, get, pct, fmt, first, runs, cite, p, bullets, numbered, pageBreak, spacer, chapter, appendix, section, subsection,

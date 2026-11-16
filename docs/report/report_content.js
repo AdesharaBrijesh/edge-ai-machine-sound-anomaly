@@ -173,7 +173,7 @@ function body(team) {
       ['C++ library + example-standalone-inferencing-linux', 'Same, compiled and run in WSL2 Ubuntu on the laptop'],
       ['Organization data pipeline (import + transform)', 'ei_pipeline.py on a GitHub Actions schedule (every 2 days)'],
       ['Project pipeline: retrain, version, deploy', 'Same native Edge Impulse feature (Data sources → pipeline)'],
-      ['Collaborators, project README', 'Same; project and code are public'],
+      ['Collaborators, project README', 'Public Edge Impulse project and public GitHub repository with a README'],
     ], [45, 55], 'tab:mapping'),
     section('Project workflow at a glance', 'sec:workflow'),
     p(`${ref('tab:workflow')} summarises what was done in which order, which tool did the work, and what each step produced. Edge Impulse provided the processing block, cloud training, quantisation, on-device estimates and the exported libraries; everything around it (data preparation, automation, evaluation of the deployed library and the monitoring dashboard) was built in this project.`),
@@ -191,7 +191,7 @@ function body(team) {
       ['11. Documentation', 'docx (Node.js), Word, Slides', 'This report, presentation slides, demo script'],
     ], [26, 37, 37], 'tab:workflow'),
     section('Organisation of the report'),
-    p('Chapter 2 describes the dataset and the data pipeline, Chapter 3 the impulse and its training, Chapter 4 the evaluation on held-out recordings, and Chapter 5 the deployment as C++ and WebAssembly together with the automation. Chapter 6 concludes and lists the limitations. The appendices hold the contributions table, additional Edge Impulse screenshots, the steps to reproduce the project and a list of abbreviations.'),
+    p('Chapter 2 describes the dataset and the data pipeline, Chapter 3 the impulse and its training, Chapter 4 the evaluation on held-out recordings, and Chapter 5 the deployment as C++ and WebAssembly together with the automation. Chapter 6 concludes and lists the limitations. Appendix A lists the abbreviations used.'),
 
     // ===================================================================== 2
     chapter(2, 'Dataset and Data Pipeline', 'ch:data'),
@@ -239,6 +239,9 @@ function body(team) {
       ['Frequency range', '0–8000 Hz', 'Full band at 16 kHz'],
       ['Noise floor', '−72 dB', 'Keeps quiet machine detail; clips silence'],
     ], [29, 24, 47], 'tab:mfe'),
+    ...shot('05-mfe-parameters.png', 'MFE parameters and the processed spectrogram in Edge Impulse', 'fig:mfeparams'),
+    ...shot('06-mfe-features.png', 'MFE feature explorer in Edge Impulse: the 14,573 training windows projected to two dimensions', 'fig:mfefeat'),
+    p(`The feature explorer (${ref('fig:mfefeat')}) already shows what the classifier will find easy and hard: background windows form a cluster of their own, while normal and abnormal windows share several clusters. The test results in Chapter 4 follow the same pattern: background is never confused with a pump, and the errors are between normal and abnormal.`),
     section('Versions of the impulse', 'sec:versions'),
     p(`Like the guide, the first version (v1) used two processing blocks: MFE for the classifier and a Spectral Analysis block (128-point FFT plus statistics) for a Gaussian-mixture (GMM) anomaly detector. That design trained well but its exported library failed at run time (${ref('sec:ondevice')}). The final version (v2) is a single MFE block feeding the classifier, rebuilt from scratch in a second Edge Impulse project by scripts/run_all.py. Both versions use the same data, MFE parameters and network; they differ in the anomaly block and in how long the classifier could be trained (${ref('sec:training')}).`),
     section('Learning block'),
@@ -296,7 +299,8 @@ function body(team) {
       [['DCASE 2020 baseline (autoencoder)', cite(8)], 'unsupervised, normal-only training', '72.9 % AUC on pump'],
     ], [38, 32, 30], 'tab:related'),
     section('Anomaly detection', 'sec:anomaly'),
-    p(`A classifier can only answer with one of the classes it was trained on. The guide’s answer to sounds never seen in training is an anomaly block, and v1 had one: a Gaussian mixture model (5 components) on the 69 Spectral Analysis features, trained and tested in Edge Impulse (${ref('fig:b4')}). Its exported library, however, could not run unmodified (${ref('sec:ondevice')}), so its behaviour on unknown sounds in deployment could not be shown reliably.`),
+    p(`A classifier can only answer with one of the classes it was trained on. The guide’s answer to sounds never seen in training is an anomaly block, and v1 had one: a Gaussian mixture model (5 components) on the 69 Spectral Analysis features, trained and tested in Edge Impulse. A later experiment in the same project tried K-means clustering (32 clusters) on the MFE features instead (${ref('fig:anom')}). The exported library of the GMM version, however, could not run unmodified (${ref('sec:ondevice')}), so its behaviour on unknown sounds in deployment could not be shown reliably.`),
+    ...shot('07-anomaly-explorer.png', 'Anomaly detection page of the first Edge Impulse project: K-means settings (32 clusters) and the anomaly explorer on two MFE features', 'fig:anom'),
     p('For the final version we fitted the GMM to a slice of the MFE features instead (all 40 mel bands of two frames, 80 values). The mixture trained, but Edge Impulse’s profiling step then failed with “cannot reshape array of size 35,558,120 into shape (14573, 61)”: it reshaped the anomaly block’s input to the classifier’s 61 × 40 input shape. This looks like a platform limitation for a GMM that shares a processing block with an expert-mode classifier, and the failed job used a quarter of the remaining compute, so the final model is classifier-only.'),
     p('The consequence is visible in the dashboard. Three synthetic sounds that are neither pump nor room (white noise, a two-tone hum and a frequency sweep) are all labelled abnormal. A confidence threshold does not rescue this: white noise is classified with 100 % confidence, and only the hum falls below 0.6. Detecting unknown sounds therefore remains future work: re-adding the GMM or K-means block once compute resets, or an unsupervised model trained on normal sound only, as in DCASE.'),
     section('EON Tuner'),
@@ -307,13 +311,14 @@ function body(team) {
     // ===================================================================== 5
     chapter(5, 'Deployment and Automation', 'ch:deploy'),
     section('On-device estimates and real-time feasibility', 'sec:ondevice'),
-    ...table('Estimated on-device performance per block on the Arduino Nano 33 BLE Sense, Cortex-M4F 64 MHz (Edge Impulse profiling; RAM and flash of the classifier from the v1 profile of the identical network)', ['Block', 'Latency', 'RAM', 'Flash'], [
-      ['MFE processing block', perf('mfe_ms') ? fmt(perf('mfe_ms'), 0, ' ms') : `see ${ref('fig:b3')}`, perf('mfe_ram_kb') ? fmt(perf('mfe_ram_kb'), 1, ' KB') : '—', '—'],
+    ...table('Estimated on-device performance per block on the Arduino Nano 33 BLE Sense, Cortex-M4F 64 MHz (Edge Impulse profiling, as shown on the public project page)', ['Block', 'Latency', 'RAM', 'Flash'], [
+      ['MFE processing block', perf('mfe_ms') ? fmt(perf('mfe_ms'), 0, ' ms') : '—', perf('mfe_ram_kb') ? fmt(perf('mfe_ram_kb'), 1, ' KB') : '—', '—'],
       ['Classifier, int8 + EON compiler (deployed)', fmt(perf('classifier_int8.latency_ms'), 0, ' ms'), fmt(mem('classifier_int8.ram_kb'), 1, ' KB'), fmt(mem('classifier_int8.flash_kb'), 1, ' KB')],
       ['Classifier, float32 (for comparison)', fmt(perf('classifier_float32.latency_ms'), 0, ' ms'), fmt(mem('classifier_float32.ram_kb'), 1, ' KB'), fmt(mem('classifier_float32.flash_kb'), 1, ' KB')],
       ['v1 only: GMM anomaly detector', fmt(D('performance_v1.gmm_ms'), 0, ' ms'), fmt(D('performance_v1.anomaly_float32.ram_kb'), 1, ' KB'), fmt(D('performance_v1.anomaly_float32.flash_kb'), 1, ' KB')],
     ], [49, 17, 17, 17], 'tab:ondevice'),
     p(['For continuous monitoring a new window starts every 500 ms, so feature extraction and the classifier must finish within 500 ms. The int8 classifier takes ', fmt(perf('nn_ms'), 0, ' ms'), ', leaving almost the whole budget to the MFE block. Quantising the classifier to int8 cut its latency from ', fmt(perf('classifier_float32.latency_ms'), 0, ' ms'), ' to ', fmt(perf('nn_ms'), 0, ' ms'), ` with a validation accuracy within two points of float32 (${ref('tab:val')}). For comparison, the public reference pump model`, cite(7), ' needs 555 ms per inference on a Cortex-M4F at 80 MHz and would fall behind a 500 ms stride.']),
+    ...shot('01-dashboard.png', 'Edge Impulse project dashboard: target device Arduino Nano 33 BLE Sense (top right) and public sharing', 'fig:target'),
     ...shot('12-deployment.png', 'Deployment page: C++ library with the EON compiler', 'fig:deployment', 'Deployment page'),
     p([{ text: 'Deployment lesson. ', bold: true }, `(1) With two processing blocks (MFE for the classifier, Spectral Analysis for the anomaly detector), the v1 C++ and WebAssembly builds both failed at run time with “Would write outside feature buffer”: the Edge Impulse SDK writes every processing block’s output, one after another, into one buffer sized by the classifier’s input (2,440 values), so the 69 spectral values overflowed it. Enlarging that buffer by hand in the exported model_variables.h (nn_input_frame_size = 2,509) made the v1 C++ library run, which is how v1 is evaluated in ${ref('sec:testing')}. (2) Feeding both blocks to the classifier and cropping back to the MFE part inside the network fixed the buffer without patching, but the int8 model collapsed from 91 % to 6 % validation accuracy: an int8 model quantises its whole input with one scale, and the spectral statistics (values up to about 400) left the MFE values (0–0.8) with almost no resolution. The robust design is one processing block per impulse, as in the final version, whose libraries run unmodified.`]),
     section('C++ library on Linux (as in the reference guide)', 'sec:cpp'),
@@ -344,15 +349,18 @@ function body(team) {
     subsection('Model card and in-browser benchmark'),
     p(`The last tab summarises the deployed model: the signal path with the real tensor shapes (16,000 samples → 61 × 40 MFE → Conv1D 61 × 16 → 31 × 16 → Conv1D 31 × 32 → 16 × 32 → 3 outputs, 5,043 parameters), the C++ test results and confusion matrix of ${ref('sec:testing')}, the on-device estimates, and a benchmark that times 300 inferences of the WebAssembly model on the viewing machine and re-classifies the ten demonstration clips, which were never uploaded to Edge Impulse: ${pct(D('demo_eval.windowAccuracy'))} of windows and ${pct(D('demo_eval.clipAccuracy'))} of clips are correct, with the same normal-to-abnormal confusion as in ${ref('sec:testing')}.`),
 
+
     section('Automation'),
     p('The guide automates two pipelines; both are reproduced here:'),
     ...bullets([
       [{ text: 'Data import and retraining: ', bold: true }, 'ei_pipeline.py uploads any new labelled recordings, starts a retrain job (which regenerates the DSP features and retrains every learning block), builds the C++ library and the WebAssembly package, and downloads both. A GitHub Actions workflow runs it every two days (cron 0 3 */2 * *) and stores the libraries as build artifacts.'],
       [{ text: 'Project pipeline: ', bold: true }, 'Edge Impulse’s native Data sources pipeline (“Don’t import data”) retrains the model, creates a new project version and builds a new C++ deployment on a schedule — the same configuration as the guide’s Figures 32–33.'],
     ]),
+    ...shot('13-versioning.png', 'Project versions in the first Edge Impulse project, created automatically by the project pipeline (retrain → create version)', 'fig:versions'),
     ...shot('14-pipeline.png', 'Native Edge Impulse pipeline: retrain, create version, build deployment', 'fig:pipeline', 'Data acquisition → Data sources'),
-    section('Collaboration and reproducibility'),
-    p(`All team members are collaborators on the Edge Impulse project, whose README documents the data origin and processing. The project is public (${eiLink}) and the complete code, with instructions to reproduce every step (${ref('app:repro')}), is public on GitHub (${ghLink}).`),
+    section('Public project and reproducibility'),
+    p(`The Edge Impulse project is public (${eiLink}): anyone can inspect the 908 samples, the impulse, the trained model and its on-device performance, and clone it (${ref('fig:public')}). The complete code is public on GitHub (${ghLink}), and its README reproduces every step, from the dataset download to the dashboard.`, { alignment: AlignmentType.LEFT }),
+    ...shot('16-launch-in-browser.png', 'Public view of Edge Impulse project 1165553: 908 samples, validation accuracy 83.6 % (float32) and on-device performance of the int8 model (7 ms, 7.9 KB RAM, 34.6 KB flash)', 'fig:public'),
 
     // ===================================================================== 6
     chapter(6, 'Conclusions', 'ch:conclusions'),
@@ -383,37 +391,7 @@ function body(team) {
     ], 'refs'),
 
     // ===================================================================== appendices
-    appendix('A', 'Contributions', 'app:contrib'),
-    p('To be completed by the team.'),
-    ...table('Contributions of the team members', ['Team member', 'Enrolment No.', 'Contributions'], team.map((m) => [m.name, m.id, ' ']), [30, 25, 45], 'tab:contrib'),
-
-    appendix('B', 'Additional Edge Impulse Screenshots', 'app:shots'),
-    ...shot('01-dashboard.png', 'Project dashboard with the target device (Arduino Nano 33 BLE Sense)', 'fig:b1', 'Dashboard → Project info'),
-    ...shot('05-mfe-parameters.png', 'MFE parameters and processed spectrogram', 'fig:b2', 'Impulse design → MFE → Parameters'),
-    ...shot('06-mfe-features.png', 'MFE feature explorer and on-device processing estimate', 'fig:b3', 'MFE → Generate features'),
-    ...shot('07-anomaly-explorer.png', 'v1 anomaly detection (GMM) on the Spectral Analysis features', 'fig:b4', 'Anomaly detection page of the first project'),
-    ...shot('13-versioning.png', 'Saved project versions', 'fig:b5', 'Versioning'),
-    ...shot('15-collaborators.png', 'Collaborators and project README', 'fig:b6', 'Dashboard'),
-    ...shot('16-launch-in-browser.png', 'Edge Impulse “Launch in browser” live classification', 'fig:b7', 'Dashboard → Run this model'),
-
-    appendix('C', 'Reproducing the Project', 'app:repro'),
-    p('All steps run from the repository root; the Edge Impulse API key and project ID are read from .env.'),
-    ...code([
-      'pip install -r requirements.txt',
-      'python scripts/download_dataset.py --machine pump',
-      'python scripts/prepare_dataset.py --machine pump --max-per-class 300',
-      'python scripts/record_mic_path.py replay --input <raw mic>',
-      'python scripts/record_mic_path.py background --input <raw mic> --minutes 8',
-      'python scripts/augment_noise.py',
-      'python scripts/run_all.py            # target, upload, impulse, features, train, build',
-      'bash deployment/cpp-linux/build.sh   # in WSL',
-      'bash deployment/cpp-linux/eval.sh    # in WSL: score the test set with the C++ library',
-      'python scripts/eval_cpp_results.py results/cpp_eval.csv',
-      'python scripts/demo_check.py         # browser evaluation + screenshots',
-      'python demo/serve.py                 # http://localhost:8000',
-    ]),
-
-    appendix('D', 'List of Abbreviations', 'app:abbr'),
+    appendix('A', 'List of Abbreviations', 'app:abbr'),
     ...table('Abbreviations used in this report', ['Abbreviation', 'Meaning'], [
       ['API', 'Application programming interface'],
       ['AUC', 'Area under the ROC curve'],
