@@ -69,6 +69,38 @@ function titlePage(team, info) {
   ];
 }
 
+// Course front page (SITAICS course template "Front page.docx": university, logo, school, subject,
+// semester, session, submitted by). Times New Roman as in the template; A4 like the rest of the report.
+function courseFrontPage(team, info) {
+  const t = (text, size, opts = {}) => new TextRun({ text, font: 'Times New Roman', size: size * 2, ...opts });
+  const line = (children, after = 60, before = 0) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before, after, line: 300 }, children });
+  const logoFile = path.join(R.HERE, 'template_assets', 'rru_logo_front.jpeg');
+  const logo = fs.existsSync(logoFile)
+    ? new ImageRun({ type: 'jpg', data: fs.readFileSync(logoFile), transformation: { width: 120, height: 127 },
+      altText: { title: 'Rashtriya Raksha University logo', description: 'Rashtriya Raksha University logo', name: 'rru_logo' } })
+    : t('[RRU logo]', 13);
+  const col = 4700; // second column of the "Submitted by" block
+  const row = (a, b, bold = false) => new Paragraph({
+    tabStops: [{ type: TabStopType.LEFT, position: col }], spacing: { after: 80, line: 300 },
+    children: [t(a, 13, { bold }), t(`\t${b}`, 13, { bold })],
+  });
+  return [
+    line([t('RASHTRIYA RAKSHA UNIVERSITY', 24.5, { bold: true })], 200, 200),
+    line([t('Pioneering National Security and Police University of India', 13)]),
+    line([t('An institute of national importance', 13)]),
+    line([t('Lavad – Dahegam,', 13)]),
+    line([t('Gandhinagar - 382305', 13)], 600),
+    line([logo], 1300),
+    line([t(`${info.school.replace(" and ", " & ")} (${info.schoolShort})`, 13, { bold: true })], 120),
+    line([t(`Subject: ${info.subject}`, 13, { bold: true })]),
+    line([t(`Subject Code: ${info.subjectCode}`, 13, { bold: true })]),
+    line([t(`Semester – ${info.semester}`, 13)]),
+    line([t(`(Session ${info.session})`, 13)], 1200),
+    row('Submitted by:', 'Enrolment Number:', true),
+    ...team.map((m) => row(m.name, m.id)),
+  ];
+}
+
 function formParagraph(children, opts = {}) {
   return new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 200, line: LINE }, children, ...opts });
 }
@@ -424,6 +456,10 @@ function build() {
     professor: TEAM.professor || '[Name of supervisor]',
     designation: TEAM.professor_designation || '[Designation]',
     school: TEAM.school || 'School of Information Technology, Artificial Intelligence and Cyber Security',
+    subject: TEAM.subject || 'Edge AI',
+    subjectCode: TEAM.subject_code || 'M3A16EAA',
+    semester: TEAM.semester || 'III',
+    session: TEAM.session || '2026 – 27',
     schoolShort: TEAM.school_short || 'SITAICS',
     date: TEAM.date || 'November 2026',
   };
@@ -474,10 +510,10 @@ function build() {
       ],
     },
     sections: [
-      // front page and cover page (no page numbers), as in the template
+      // course front page, then the title page (no page numbers)
       {
         properties: { page: page({ left: 1440, right: 1440, top: 1000, bottom: 800 }) },
-        children: [...titlePage(team, info), pageBreak(), ...titlePage(team, info)],
+        children: [...courseFrontPage(team, info), pageBreak(), ...titlePage(team, info)],
       },
       // preliminary pages, lower-case roman numbers
       {
